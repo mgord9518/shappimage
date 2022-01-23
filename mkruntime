@@ -1,0 +1,86 @@
+#!/bin/sh
+
+# VERY hacked together script just to assemble the runtime, probably will
+# eventually make it cleaner, but it works for the time being
+
+runtime='runtime.sh'
+
+# Currently only support LZ4 and x86, it would be cool to automatically build
+# the runtime based on the AppImage's supported architectures
+mkdir bin
+wget https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_lz4.x86_64 -O bin/squashfuse.x86_64
+touch bin/squashfuse.i386 bin/squashfuse.aarch64 bin/squashfuse.armhf
+
+# Sizes of all files being packed into the runtime
+lx86_64=`wc -c bin/squashfuse.x86_64 | cut -d ' ' -f 1`
+li386=`wc -c bin/squashfuse.i386 | cut -d ' ' -f 1`
+laarch64=`wc -c bin/squashfuse.aarch64 | cut -d ' ' -f 1`
+larmhf=`wc -c bin/squashfuse.armhf | cut -d ' ' -f 1`
+
+# Offsets of squashfuse binaries by arch
+# These are used when the runtime is executed to know where in the file to
+# extract the appropriate binary
+ox86_64=0
+oi386=$((    $ox86_64  + $lx86_64  ))
+oaarch64=$(( $oi386    + $li386    ))
+oarmhf=$((   $oaarch64 + $laarch64 ))
+
+echo '#!/bin/sh
+#.shImg.#
+#flattended script to reduce size; see <github.com/mgord9518/shappimage> for src' > runtime
+#cp "$runtime" runtime
+#cat runtime.sh | grep . >> runtime
+cat runtime.sh | sed 's:#.*::' | tr -d '\t' | grep . >> runtime
+
+# Locations of their CASE statements
+#sfs=`grep -an 'sfsLength=' "$runtime" | head -n +1 | cut -d ':' -f 1`
+bin=`grep -an 'sfsOffset=' "runtime" | head -n +1 | cut -d ':' -f 1`
+#script=`grep -an 'sfsOffset=' "runtime" | head -n +1 | cut -d ':' -f 1`
+x86_64=`grep -an 'x86_64)' "runtime" | head -n +1 | cut -d ':' -f 1`
+i386=`grep -an 'i?86)' "runtime" | head -n +1 | cut -d ':' -f 1`
+aarch64=`grep -an 'aarch64)' "runtime" | head -n +1 | cut -d ':' -f 1`
+armhf=`grep -an 'armhf)' "runtime" | head -n +1 | cut -d ':' -f 1`
+
+# Add in all the sizes and offsets
+#sed -i "$(($x86_64+1))s/___CHANGEME___/$ox86_64/g" runtime.tmp
+#sed -i "s/# x86_64:/# x86_64: 0, $lx86_64/" runtime
+sed -i "s/___x86_64_length___/$lx86_64/" runtime
+sed -i "s/___i386_offset___/$oi386/" runtime
+sed -i "s/___i386_length___/$li386/" runtime
+#sed -i "s/# i386:/# xi386: $oi386, $li386/" runtime
+#sed -i "s/# aarch64:/# aarch64: $oaarch64, $laarch64/" runtime
+#sed -i "s/# armhf:/# armhf: $oarmhf, $larmhf/" runtime
+
+sed -i "$(($i386+1))s/___CHANGEME_i386_offset___/$oi386/" runtime
+sed -i "$(($i386+2))s/___CHANGEME_i386_length__/$li386/" runtime
+
+sed -i "$(($aarch64+1))s/___CHANGEME___/$oaarch64/" runtime
+sed -i "$(($aarch64+2))s/___CHANGEME___/$laarch64/" runtime
+
+sed -i "$(($armhf+1))s/___CHANGEME___/$oarmhf/" runtime
+sed -i "$(($armhf+2))s/___CHANGEME___/$larmhf/" runtime
+
+scriptLen=$(cat runtime | wc -c | tr -dc '0-9')
+scriptLen=$(($scriptLen+9))
+# Get the size of the runtime script and add 5 (as those 5 chars will be used
+# to give the SquashFS offset in hex). The offset having a maximum of FFFFF
+# allows it to be up to 1MiB in size, which is PLENTY for the script and
+# squashfuse binaries of up to 4 or even 5 different architectures (current
+# squashfuse build size is 194kB)
+runLen=$(cat runtime bin/squashfuse.x86_64 | wc -c | tr -dc '0-9')
+runLen="$(($runLen+9))"
+
+# Add the script length to the correct line
+scriptLen=$(printf "%03x" "$scriptLen")
+echo $scriptLen
+sed -i "s/scriptLen=/scriptLen=$scriptLen/" runtime
+
+
+# Add the SquashFS offset to the correct line
+sfsOffset=$(printf "%05x" "$runLen")
+sed -i "${bin}s/sfsOffset=/sfsOffset=$sfsOffset/" runtime
+
+cat runtime bin/squashfuse.x86_64 bin/squashfuse.i386 bin/squashfuse.aarch64 bin/squashfuse.armhf > runtime2
+
+rm runtime
+mv runtime2 shImg_runtime-lz4
