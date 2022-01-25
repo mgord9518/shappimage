@@ -50,8 +50,10 @@ armhf=`grep -an 'armhf)' "runtime" | head -n +1 | cut -d ':' -f 1`
 sed -i "s/___x86_64_length___/$lx86_64/" runtime
 sed -i "s/___i386_offset___/$oi386/" runtime
 sed -i "s/___i386_length___/$li386/" runtime
-sed -i "s/___armhf_offset___/$oi386/" runtime
-sed -i "s/___armhf_length___/$li386/" runtime
+sed -i "s/___aarch64_offset___/$oaarch64/" runtime
+sed -i "s/___aarch64_length___/$laarch64/" runtime
+sed -i "s/___armhf_offset___/$oarmhf/" runtime
+sed -i "s/___armhf_length___/$larmhf/" runtime
 
 scriptLen=$(cat runtime | wc -c | tr -dc '0-9')
 scriptLen=$(($scriptLen+9))

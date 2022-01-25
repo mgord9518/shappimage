@@ -26,6 +26,7 @@
 #   isn't standard and uses the sfsOffset variable as the offset instead of
 #   the ELF header
 
+[ -z $ARCH ] && ARCH=$(uname -m)
 [ -z $UID  ] && UID=$(id -u)
 [ -z "$TARGET_APPIMAGE" ] && TARGET_APPIMAGE="$0"
 if [ $TMPDIR ]; then
@@ -217,7 +218,7 @@ mountAppImage() {
 	getSfsOffset
 
 	# If the user doesn't have squashfuse installed, extract the internal one
-	command -v 'squashfuse' > /dev/null || extractSquashfuse
+	command -v 'Squashfuse' > /dev/null || extractSquashfuse
 
 	# Attempt to mount and thow an error if unsuccessful
 	squashfuse -o offset="$sfsOffset" "$TARGET_APPIMAGE" "$MNTDIR" #2> /dev/null
@@ -244,8 +245,6 @@ unmountAppImage() {
 
 # Find the location of the internal squashfuse binary based on system arch
 extractSquashfuse() {
-	[ -z $ARCH ] && ARCH=$(uname -m)
-
 	# Offsets and lengths of squashfuse binaries
 	case "$ARCH" in
 		x86_64)
@@ -258,7 +257,7 @@ extractSquashfuse() {
 			offset=$((___aarch64_offset___+0x$scriptLen))
 			length=___aarch64_length___;;
 		armhf|armv7l)
-			offset=$((___armhf_offset___+$0xscriptLen))
+			offset=$((___armhf_offset___+0x$scriptLen))
 			length=___armhf_length___;;
 		*)
 			1>&2 echo "your machine arch $ARCH is not supported in this bundle! :("
