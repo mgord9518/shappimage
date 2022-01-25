@@ -1,8 +1,9 @@
 #!/bin/sh
 #.shImg.#
 
-# This is a proof-of-concept of a fat AppImage runtime using shell scripting
+# Copyright © 2021-2022 Mathew Gordon <github.com/mgord9518>
 
+# This is a proof-of-concept of a fat AppImage runtime using shell scripting
 # The base functionality is mostly modeled directly off of AppImage type 2's
 # `runtime.c` but there are some differences.
 #
@@ -256,7 +257,7 @@ extractSquashfuse() {
 		aarch64)
 			offset=$((___aarch64_offset___+0x$scriptLen))
 			length=___aarch64_length___;;
-		armhf)
+		armhf|armv7l)
 			offset=$((___armhf_offset___+$0xscriptLen))
 			length=___armhf_length___;;
 		*)

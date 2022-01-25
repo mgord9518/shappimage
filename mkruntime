@@ -5,11 +5,16 @@
 
 runtime='runtime.sh'
 
+# ARCH variable sets the arch, COMP sets the compression algo
+#[ -z $ARCH ] && ARCH='x86_64,aarch64'
+[ -z $COMP ] && COMP='lz4'
+
 # Currently only support LZ4 and x86, it would be cool to automatically build
 # the runtime based on the AppImage's supported architectures
 mkdir bin
-wget https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_lz4.x86_64 -O bin/squashfuse.x86_64
-touch bin/squashfuse.i386 bin/squashfuse.aarch64 bin/squashfuse.armhf
+wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" -O bin/squashfuse.x86_64
+wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP.armv7l" -O bin/squashfuse.armhf
+touch bin/squashfuse.i386 bin/squashfuse.aarch64
 
 # Sizes of all files being packed into the runtime
 lx86_64=`wc -c bin/squashfuse.x86_64 | cut -d ' ' -f 1`
@@ -42,23 +47,11 @@ aarch64=`grep -an 'aarch64)' "runtime" | head -n +1 | cut -d ':' -f 1`
 armhf=`grep -an 'armhf)' "runtime" | head -n +1 | cut -d ':' -f 1`
 
 # Add in all the sizes and offsets
-#sed -i "$(($x86_64+1))s/___CHANGEME___/$ox86_64/g" runtime.tmp
-#sed -i "s/# x86_64:/# x86_64: 0, $lx86_64/" runtime
 sed -i "s/___x86_64_length___/$lx86_64/" runtime
 sed -i "s/___i386_offset___/$oi386/" runtime
 sed -i "s/___i386_length___/$li386/" runtime
-#sed -i "s/# i386:/# xi386: $oi386, $li386/" runtime
-#sed -i "s/# aarch64:/# aarch64: $oaarch64, $laarch64/" runtime
-#sed -i "s/# armhf:/# armhf: $oarmhf, $larmhf/" runtime
-
-sed -i "$(($i386+1))s/___CHANGEME_i386_offset___/$oi386/" runtime
-sed -i "$(($i386+2))s/___CHANGEME_i386_length__/$li386/" runtime
-
-sed -i "$(($aarch64+1))s/___CHANGEME___/$oaarch64/" runtime
-sed -i "$(($aarch64+2))s/___CHANGEME___/$laarch64/" runtime
-
-sed -i "$(($armhf+1))s/___CHANGEME___/$oarmhf/" runtime
-sed -i "$(($armhf+2))s/___CHANGEME___/$larmhf/" runtime
+sed -i "s/___armhf_offset___/$oi386/" runtime
+sed -i "s/___armhf_length___/$li386/" runtime
 
 scriptLen=$(cat runtime | wc -c | tr -dc '0-9')
 scriptLen=$(($scriptLen+9))
@@ -67,7 +60,7 @@ scriptLen=$(($scriptLen+9))
 # allows it to be up to 1MiB in size, which is PLENTY for the script and
 # squashfuse binaries of up to 4 or even 5 different architectures (current
 # squashfuse build size is 194kB)
-runLen=$(cat runtime bin/squashfuse.x86_64 | wc -c | tr -dc '0-9')
+runLen=$(cat runtime bin/squashfuse.* | wc -c | tr -dc '0-9')
 runLen="$(($runLen+9))"
 
 # Add the script length to the correct line
