@@ -9,11 +9,13 @@ runtime='runtime.sh'
 #[ -z $ARCH ] && ARCH='x86_64,aarch64'
 [ -z $COMP ] && COMP='lz4'
 
-# Currently only support LZ4 and x86, it would be cool to automatically build
-# the runtime based on the AppImage's supported architectures
+# Currently only support LZ4 compression x86, ARMHF and AARCH64. it would be
+# cool to automatically build the runtime based on the AppImage's supported
+# architectures
 mkdir bin
 wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" -O bin/squashfuse.x86_64
 wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP.armv7l" -O bin/squashfuse.armhf
+wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP.aarch64" -O bin/squashfuse.aarch64
 touch bin/squashfuse.i386 bin/squashfuse.aarch64
 
 # Sizes of all files being packed into the runtime
@@ -57,6 +59,7 @@ sed -i "s/___armhf_length___/$larmhf/" runtime
 
 scriptLen=$(cat runtime | wc -c | tr -dc '0-9')
 scriptLen=$(($scriptLen+9))
+
 # Get the size of the runtime script and add 5 (as those 5 chars will be used
 # to give the SquashFS offset in hex). The offset having a maximum of FFFFF
 # allows it to be up to 1MiB in size, which is PLENTY for the script and

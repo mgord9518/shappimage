@@ -27,8 +27,12 @@
 #   the ELF header
 
 [ -z $ARCH ] && ARCH=$(uname -m)
+# TODO: Add more ARMHF-compat arches
+if [ "$ARCH" = armv7l ]; then
+	ARCH=armhf
+fi
 [ -z $UID  ] && UID=$(id -u)
-[ -z "$TARGET_APPIMAGE" ] && TARGET_APPIMAGE="$0"
+[ -z $TARGET_APPIMAGE ] && TARGET_APPIMAGE="$0"
 if [ $TMPDIR ]; then
 	tempDir="$TMPDIR"
 elif [ $XDG_RUNTIME_DIR ]; then
@@ -221,8 +225,13 @@ mountAppImage() {
 	command -v 'Squashfuse' > /dev/null || extractSquashfuse
 
 	# Attempt to mount and thow an error if unsuccessful
-	squashfuse -o offset="$sfsOffset" "$TARGET_APPIMAGE" "$MNTDIR" #2> /dev/null
+	squashfuse -o offset="$sfsOffset" "$TARGET_APPIMAGE" "$MNTDIR" 2> /dev/null
 	if [ $? -ne 0 ]; then
+		if [ $(wc -c < "$0") == $sfsOffset ]; then
+			1>&2 echo "no SquashFS image attached!"
+			exit 69
+		fi
+
 		1>&2 echo "failed to mount SquashFS image! bundle may be corrupted :("
 		exit 1
 	fi
@@ -256,7 +265,7 @@ extractSquashfuse() {
 		aarch64)
 			offset=$((___aarch64_offset___+0x$scriptLen))
 			length=___aarch64_length___;;
-		armhf|armv7l)
+		armhf)
 			offset=$((___armhf_offset___+0x$scriptLen))
 			length=___armhf_length___;;
 		*)
