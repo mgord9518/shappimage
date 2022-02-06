@@ -90,4 +90,5 @@ sed -i "s/_sfs_o/$sfsOffset/" runtime
 cat runtime squashfuse/squashfuse.x86_64 squashfuse/squashfuse.i386 squashfuse/squashfuse.aarch64 squashfuse/squashfuse.armhf > runtime2
 
 rm runtime
+rm -r squashfuse
 mv runtime2 "runtime-$COMP-$ARCH"
