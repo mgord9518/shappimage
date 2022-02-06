@@ -10,9 +10,36 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Build
-      run: ./mkruntime
+    - name: Build all architectures (LZ4)
+      run:  ARCH=x86_64-aarch64-armhf ./mkruntime
+
+    - name: Build x86_64 and aarch64 (LZ4)
+      run:  ARCH=x86_64-aarch64 ./mkruntime
   
+    - name: Build x86_64 (LZ4)
+      run:  ARCH=x86_64 ./mkruntime
+  
+    - name: Build aarch64 (LZ4)
+      run:  ARCH=aarch64 ./mkruntime
+
+    - name: Build armhf (LZ4)
+      run:  ARCH=armhf ./mkruntime
+  
+    - name: Build all architectures (ZSTD)
+      run:  ARCH=x86_64-aarch64-armhf COMP=zstd ./mkruntime
+
+    - name: Build x86_64 and aarch64 (LZ4)
+      run:  ARCH=x86_64-aarch64 COMP=zstd ./mkruntime
+  
+    - name: Build x86_64 (LZ4)
+      run:  ARCH=x86_64 COMP=zstd ./mkruntime
+  
+    - name: Build aarch64 (LZ4)
+      run:  ARCH=aarch64 COMP=zstd ./mkruntime
+
+    - name: Build armhf (LZ4)
+      run:  ARCH=armhf COMP=zstd ./mkruntime
+
     - name: Upload build
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
@@ -21,4 +48,4 @@ jobs:
         prerelease: true
         title: "Continuous"
         files: |
-          shImg*
+          runtime-*
