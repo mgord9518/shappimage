@@ -57,8 +57,7 @@ case "$shell" in
 		useBashisms=false;;
 esac
 
-sfsOffset=
-scriptLen=
+sfsOffset=_sfs_o
 version=0.1.0
 #gpgSig= GPG signing NEI
 #gpgPub=
@@ -171,8 +170,6 @@ getSfsOffset_bashisms() {
 
 	# Get offset for another shappimage
 	if [ "$elfClass" = "69" ]; then
-		sfsOffset='0x'$sfsOffset
-		sfsOffset=$(($sfsOffset))
 		return
 	fi
 
@@ -188,14 +185,34 @@ mountAppImage() {
 		return
 	fi
 
+	case "$ARCH" in
+		x86_64)
+			offset=_x64_o
+			length=_x64_l;;
+		i?86)
+			offset=i386_o
+			length=i386_l;;
+		aarch64)
+			offset=ar64_o
+			length=ar64_l;;
+		armhf)
+			offset=ar32_o
+			length=ar32_l;;
+	esac
+
+	if [ $length -eq 0 ]; then
+		1>&2 echo "your machine arch ($ARCH) is not supported in this bundle! :("
+		exit 1
+	fi
+
 	# Set variable for random numbers if not available in running shell
 	[ -z $RANDOM ] && RANDOM=$(tr -dc '0-9a-zA-Z' < /dev/urandom | head -c 8 &)
 
 	if [ "$useBashisms" = "false" ]; then
-		runId=$(basename "$TARGET_APPIMAGE" | head -c 8 &)"_$RANDOM"
+		runId="$(basename $TARGET_APPIMAGE | head -c 8 &)$RANDOM"
 	else
-		runId=$(basename "$TARGET_APPIMAGE")
-		runId="${runId:0:8}_$RANDOM"
+		runId="$(basename $TARGET_APPIMAGE)"
+		runId="${runId:0:8}$RANDOM"
 	fi
 
 	wait
@@ -228,7 +245,7 @@ mountAppImage() {
 	# Attempt to mount and thow an error if unsuccessful
 	squashfuse -o offset="$sfsOffset" "$TARGET_APPIMAGE" "$MNTDIR" 2> /dev/null
 	if [ $? -ne 0 ]; then
-		if [ $(wc -c < "$0") = $sfsOffset ]; then
+		if [ $(wc -c < "$0") -eq $sfsOffset ]; then
 			1>&2 echo "no SquashFS image attached!"
 			exit 69
 		fi
@@ -255,24 +272,6 @@ unmountAppImage() {
 
 # Find the location of the internal squashfuse binary based on system arch
 extractSquashfuse() {
-	# Offsets and lengths of squashfuse binaries
-	case "$ARCH" in
-		x86_64)
-			offset=_x64_o
-			length=_x64_l;;
-		i?86)
-			offset=i386_o
-			length=i386_l;;
-		aarch64)
-			offset=ar64_o
-			length=ar64_l;;
-		armhf)
-			offset=ar32_o
-			length=ar32_l;;
-		*)
-			1>&2 echo "your machine arch $ARCH is not supported in this bundle! :("
-			exit 1
-	esac
 
 	if [ -x "$tempDir/.shImg-squashfuse_$UID" ]; then
 		squashfuse() {
