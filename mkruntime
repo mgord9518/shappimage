@@ -41,6 +41,9 @@ fi
 # Just for the time being as I don't have an x86 build yet
 touch squashfuse/squashfuse.i386
 
+[ -z $NO_COMPRESS_SQUASHFUSE ] && gzip -9 squashfuse/*
+ls -l squashfuse/*
+
 # Collapse the script to make it smaller, not really sure whether I should keep
 # it or not as it also obfuscates the code and the size difference makes little
 # difference as the squashfuse binaries make up an overwhelming majority of the
@@ -50,17 +53,19 @@ echo '#!/bin/sh
 #flattended script to reduce size; see <github.com/mgord9518/shappimage> for src' > runtime
 cat runtime.sh | sed 's:#.*::' | tr -d '\t' | grep . >> runtime
 
+[ -z $NO_COMPRESS_SQUASHFUSE ] && sed -i 's/head -c +$length > /head -c +$length | gzip -d > /' runtime
+
 # Sizes of all files being packed into the runtime
-_x64_l=$(printf "%06d" `wc -c squashfuse/squashfuse.x86_64 | cut -d ' ' -f 1`)
-i386_l=$(printf "%06d" `wc -c squashfuse/squashfuse.i386 | cut -d ' ' -f 1`)
-ar64_l=$(printf "%06d" `wc -c squashfuse/squashfuse.aarch64 | cut -d ' ' -f 1`)
-ar32_l=$(printf "%06d" `wc -c squashfuse/squashfuse.armhf | cut -d ' ' -f 1`)
+_x64_l=$(printf "%06d" `wc -c squashfuse/squashfuse.x86_64* | cut -d ' ' -f 1`)
+i386_l=$(printf "%06d" `wc -c squashfuse/squashfuse.i386* | cut -d ' ' -f 1`)
+ar64_l=$(printf "%06d" `wc -c squashfuse/squashfuse.aarch64* | cut -d ' ' -f 1`)
+ar32_l=$(printf "%06d" `wc -c squashfuse/squashfuse.armhf* | cut -d ' ' -f 1`)
 
 # Offsets of squashfuse binaries by arch
 # These are used when the runtime is executed to know where in the file to
 # extract the appropriate binary
 _x64_o=$(cat runtime | wc -c | tr -dc '0-9')
-_x64_o=$(printf "%06d" "$_x64_o")
+_x64_o=$(printf "%06d" $((10#$_x64_o + 1)))
 i386_o=$(printf "%06d" $((10#$_x64_o + 10#$_x64_l)))
 ar64_o=$(printf "%06d" $((10#$i386_o + 10#$i386_l)))
 ar32_o=$(printf "%06d" $((10#$ar64_o + 10#$ar64_l)))
@@ -87,7 +92,7 @@ runLen=$(cat runtime squashfuse/squashfuse.* | wc -c | tr -dc '0-9')
 sfsOffset=$(printf "%06d" "$runLen")
 sed -i "s/_sfs_o/$sfsOffset/" runtime
 
-cat runtime squashfuse/squashfuse.x86_64 squashfuse/squashfuse.i386 squashfuse/squashfuse.aarch64 squashfuse/squashfuse.armhf > runtime2
+cat runtime squashfuse/squashfuse.x86_64* squashfuse/squashfuse.i386* squashfuse/squashfuse.aarch64* squashfuse/squashfuse.armhf* > runtime2
 
 rm runtime
 rm -r squashfuse

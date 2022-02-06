@@ -272,7 +272,6 @@ unmountAppImage() {
 
 # Find the location of the internal squashfuse binary based on system arch
 extractSquashfuse() {
-
 	if [ -x "$tempDir/.shImg-squashfuse_$UID" ]; then
 		squashfuse() {
 			"$tempDir/.shImg-squashfuse_$UID" "$@"
