@@ -18,7 +18,8 @@
 #   negligible for GUI apps, but may make a significant difference when running
 #   a CLI program many times. The launch time impact can also be remedied by
 #   LZ4 compression (default) at the cost of larger bundles. IMO, it is a good
-#   balance between launch time and compression
+#   balance between launch time and compression. This script also runs faster
+#   with dash compared to bash or zsh
 # * There are currently no tools to properly build AppImages with this runtime
 #   besides `mkruntime`, which is fully intended as a temporary builder for
 #   testing the script development
@@ -26,13 +27,15 @@
 #   isn't standard and uses the sfsOffset variable as the offset instead of
 #   the ELF header
 
-[ -z $ARCH ] && ARCH=$(uname -m)
+# Run these startup commands concurrently to make them faster
+[ -z $ARCH ] && ARCH=$(uname -m &)
 # TODO: Add more ARMHF-compat arches
-if [ "$ARCH" = armv7l ]; then
-	ARCH=armhf
-fi
-[ -z $UID  ] && UID=$(id -u)
+[ -z $UID  ] && UID=$(id -u &)
 [ -z $TARGET_APPIMAGE ] && TARGET_APPIMAGE="$0"
+shell=$(readlink "/proc/$$/exe" &)
+
+wait
+
 if [ $TMPDIR ]; then
 	tempDir="$TMPDIR"
 elif [ $XDG_RUNTIME_DIR ]; then
@@ -40,10 +43,23 @@ elif [ $XDG_RUNTIME_DIR ]; then
 else
 	tempDir="/run/user/$UID"
 fi
+if [ "$ARCH" = armv7l ]; then
+	ARCH=armhf
+fi
+case "$shell" in
+	*bash)
+		useBashisms=true;;
+	*osh)
+		useBashisms=true;;
+	*zsh)
+		useBashisms=true;;
+	*)
+		useBashisms=false;;
+esac
 
 sfsOffset=
 scriptLen=
-version=0.0.5
+version=0.1.0
 #gpgSig= GPG signing NEI
 #gpgPub=
 updInfo=
@@ -67,36 +83,20 @@ enviornment variables:
 unofficial AppImage runtime implemented in shell and squashfuse
 '
 
-shell=$(readlink "/proc/$$/exe")
-case "$shell" in
-	*bash)
-		useBashisms=true;;
-	*osh)
-		useBashisms=true;;
-	*zsh)
-		useBashisms=true;;
-	*)
-		useBashisms=false;;
-esac
 
 # Calculate ELF size in pure shell using `shnum * shentsize + shoff`
 # Most of this code is just to find their values
 getSfsOffset() {
-	if [ "$0" != "$TARGET_APPIMAGE" ]; then
-		sfsOffset=$(getVar 'sfsOffset')
-		sfsOffset='0x'$sfsOffset
-		sfsOffset=$(($sfsOffset))
-		return
-	fi
+	[ "$0" = "$TARGET_APPIMAGE" ] && return
 
-	elfEndianness=$(xxd -s 5 -l 1 -p "$TARGET_APPIMAGE")
+	elfEndianness=$(xxd -s 5 -l 1 -p "$TARGET_APPIMAGE" &)
+	elfClass=$(xxd -s 4 -l 1 -p "$TARGET_APPIMAGE" &)
+	wait
 	
 	if [ "$useBashisms" = 'true' ]; then
 		getSfsOffset_bashisms
 		return
 	fi
-
-	elfClass=$(xxd -s 4 -l 1 -p "$TARGET_APPIMAGE")
 
 	# How to interpret the bytes based on their endianness
 	# 0x01 is little, 0x02 is big, 0x6e is shappimage
@@ -123,8 +123,7 @@ getSfsOffset() {
 		shnum='0x'$(getBytes 60 2)
 		shoff='0x'$(getBytes 40 8)
 	elif [ "$elfClass" = "69" ]; then
-		sfsOffset='0x'$sfsOffset
-		sfsOffset=$(($sfsOffset))
+		sfsOffset=$(getVar 'sfsOffset')
 		return
 	fi
 
@@ -190,14 +189,16 @@ mountAppImage() {
 	fi
 
 	# Set variable for random numbers if not available in running shell
-	[ -z $RANDOM ] && RANDOM=$(tr -dc '0-9a-zA-Z' < /dev/urandom | head -c 8)
+	[ -z $RANDOM ] && RANDOM=$(tr -dc '0-9a-zA-Z' < /dev/urandom | head -c 8 &)
 
 	if [ "$useBashisms" = "false" ]; then
-		runId=$(basename "$TARGET_APPIMAGE" | head -c 8)"_$RANDOM"
+		runId=$(basename "$TARGET_APPIMAGE" | head -c 8 &)"_$RANDOM"
 	else
 		runId=$(basename "$TARGET_APPIMAGE")
 		runId="${runId:0:8}_$RANDOM"
 	fi
+
+	wait
 	
 	[ -z $MNTDIR ] && MNTDIR="$tempDir/.mount_$runId"
 
@@ -222,12 +223,12 @@ mountAppImage() {
 	getSfsOffset
 
 	# If the user doesn't have squashfuse installed, extract the internal one
-	command -v 'Squashfuse' > /dev/null || extractSquashfuse
+	command -v 'squashfuse' > /dev/null || extractSquashfuse
 
 	# Attempt to mount and thow an error if unsuccessful
 	squashfuse -o offset="$sfsOffset" "$TARGET_APPIMAGE" "$MNTDIR" 2> /dev/null
 	if [ $? -ne 0 ]; then
-		if [ $(wc -c < "$0") == $sfsOffset ]; then
+		if [ $(wc -c < "$0") = $sfsOffset ]; then
 			1>&2 echo "no SquashFS image attached!"
 			exit 69
 		fi
@@ -257,17 +258,17 @@ extractSquashfuse() {
 	# Offsets and lengths of squashfuse binaries
 	case "$ARCH" in
 		x86_64)
-			offset=$((0x$scriptLen))
-			length=___x86_64_length___;;
+			offset=_x64_o
+			length=_x64_l;;
 		i?86)
-			offset=$((___i386_offset___+0x$scriptLen))
-			length=___i386_length___;;
+			offset=i386_o
+			length=i386_l;;
 		aarch64)
-			offset=$((___aarch64_offset___+0x$scriptLen))
-			length=___aarch64_length___;;
+			offset=ar64_o
+			length=ar64_l;;
 		armhf)
-			offset=$((___armhf_offset___+0x$scriptLen))
-			length=___armhf_length___;;
+			offset=ar32_o
+			length=ar32_l;;
 		*)
 			1>&2 echo "your machine arch $ARCH is not supported in this bundle! :("
 			exit 1
@@ -281,9 +282,8 @@ extractSquashfuse() {
 	fi
 
 	squashfuse() {
-		# Add $offset+1 because tail starts reading chars at 1 instead of 0
-		tail -c +$(($offset+1)) "$0" | \
-			head -c +"$length" > "$tempDir/.shImg-squashfuse_$UID"
+		tail -c +$offset "$0" | \
+			head -c +$length > "$tempDir/.shImg-squashfuse_$UID"
 
 		chmod 0700 "$tempDir/.shImg-squashfuse_$UID"
 		"$tempDir/.shImg-squashfuse_$UID" "$@"
@@ -381,8 +381,16 @@ export APPIMAGE="$TARGET_APPIMAGE"
 # if provided
 if [ -x "$MNTDIR/AppRun.$ARCH" ]; then
 	"$MNTDIR/AppRun.$ARCH" "$@"
-else
+elif [ -x "$MNTDIR/AppRun" ]; then
 	"$MNTDIR/AppRun" "$@"
+else
+	if [ -f "$MNTDIR/AppRun" ]; then
+		1>&2 echo "AppRun found but isn't executable! please report this error to the developers of this application"
+	else 
+		1>&2 echo "AppRun not found! please report this error to the developers of this application"
+	fi
+	unmountAppImage
+	exit 1
 fi
 
 # Unmount when finished
@@ -391,4 +399,3 @@ unmountAppImage
 # This script MUST end with an exit statement or the shell will continue
 # trying to run binary bullshit as a script (not good)!
 exit 0
-
