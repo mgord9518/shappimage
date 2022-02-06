@@ -18,6 +18,7 @@ if [[ "$ARCH" = *'x86_64'* ]]; then
 		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" \
 			-O squashfuse/squashfuse.x86_64
 	fi
+	[ -z $NO_COMPRESS_SQUASHFUSE ] && gzip -9n squashfuse/squashfuse.x86_64
 else
 	touch 'squashfuse/squashfuse.x86_64'
 fi
@@ -26,6 +27,7 @@ if [[ "$ARCH" = *'aarch64'* ]]; then
 		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP.aarch64" \
 			-O squashfuse/squashfuse.aarch64
 	fi
+	[ -z $NO_COMPRESS_SQUASHFUSE ] && gzip -9n squashfuse/squashfuse.aarch64
 else
 	touch 'squashfuse/squashfuse.aarch64'
 fi
@@ -34,6 +36,7 @@ if [[ "$ARCH" = *'armhf'* ]]; then
 		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP.armv7l" \
 			-O squashfuse/squashfuse.armhf
 	fi
+	[ -z $NO_COMPRESS_SQUASHFUSE ] && gzip -9n squashfuse/squashfuse.armhf
 else
 	touch 'squashfuse/squashfuse.armhf'
 fi
@@ -41,8 +44,6 @@ fi
 # Just for the time being as I don't have an x86 build yet
 touch squashfuse/squashfuse.i386
 
-[ -z $NO_COMPRESS_SQUASHFUSE ] && gzip -9 squashfuse/*
-ls -l squashfuse/*
 
 # Collapse the script to make it smaller, not really sure whether I should keep
 # it or not as it also obfuscates the code and the size difference makes little
@@ -95,5 +96,5 @@ sed -i "s/_sfs_o/$sfsOffset/" runtime
 cat runtime squashfuse/squashfuse.x86_64* squashfuse/squashfuse.i386* squashfuse/squashfuse.aarch64* squashfuse/squashfuse.armhf* > runtime2
 
 rm runtime
-rm -r squashfuse
+#rm -r squashfuse
 mv runtime2 "runtime-$COMP-$ARCH"
