@@ -44,7 +44,6 @@ fi
 # Just for the time being as I don't have an x86 build yet
 touch squashfuse/squashfuse.i386
 
-
 # Collapse the script to make it smaller, not really sure whether I should keep
 # it or not as it also obfuscates the code and the size difference makes little
 # difference as the squashfuse binaries make up an overwhelming majority of the
@@ -55,6 +54,7 @@ echo '#!/bin/sh
 cat runtime.sh | sed 's:#.*::' | tr -d '\t' | grep . >> runtime
 
 [ -z $NO_COMPRESS_SQUASHFUSE ] && sed -i 's/head -c +$length > /head -c +$length | gzip -d > /' runtime
+sed -i "s/=cmp/=$COMP/" runtime
 
 # Sizes of all files being packed into the runtime
 _x64_l=$(printf "%06d" `wc -c squashfuse/squashfuse.x86_64* | cut -d ' ' -f 1`)

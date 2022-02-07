@@ -58,10 +58,11 @@ case "$shell" in
 esac
 
 sfsOffset=_sfs_o
-version=0.1.0
+version=0.1.5
 #gpgSig= GPG signing NEI
 #gpgPub=
 updInfo=
+COMP=cmp
 helpStr='AppImage options:
   --appimage-extract          extract content from internal SquashFS image
   --appimage-help             print this help
@@ -81,7 +82,6 @@ enviornment variables:
  
 unofficial AppImage runtime implemented in shell and squashfuse
 '
-
 
 # Calculate ELF size in pure shell using `shnum * shentsize + shoff`
 # Most of this code is just to find their values
@@ -114,17 +114,19 @@ getSfsOffset() {
 
 	# 32 bit is 0x01, 64 bit is 0x02, shappimage is 0x69 (nice)
 	if [ "$elfClass" = "01" ]; then
-		shentsize='0x'$(getBytes 46 2)
-		shnum='0x'$(getBytes 48 2)
-		shoff='0x'$(getBytes 32 4)
+		shentsize='0x'$(getBytes 46 2 &)
+		shnum='0x'$(getBytes 48 2 &)
+		shoff='0x'$(getBytes 32 4 &)
 	elif [ "$elfClass" = "02" ]; then
-		shentsize='0x'$(getBytes 58 2)
-		shnum='0x'$(getBytes 60 2)
-		shoff='0x'$(getBytes 40 8)
+		shentsize='0x'$(getBytes 58 2 &)
+		shnum='0x'$(getBytes 60 2 &)
+		shoff='0x'$(getBytes 40 8 &)
 	elif [ "$elfClass" = "69" ]; then
 		sfsOffset=$(getVar 'sfsOffset')
 		return
 	fi
+
+	wait
 
 	sfsOffset=$(($shnum*$shentsize+$shoff))
 }
@@ -133,7 +135,7 @@ getSfsOffset() {
 # can have them.
 getSfsOffset_bashisms() {
 	if [ "$elfEndianness" = '01' ]; then
-		header=$(xxd -e -s 4 -l 100 -g 16 "$TARGET_APPIMAGE" | cut -d ' ' -f 2)
+		header=$(xxd -e -s 4 -l 70 -g 16 "$TARGET_APPIMAGE" | cut -d ' ' -f 2)
 		elfClass=${header:30:2}
 		if [ "$elfClass" = "01" ]; then
 			shentsize='0x'${header:74:4}
@@ -170,6 +172,7 @@ getSfsOffset_bashisms() {
 
 	# Get offset for another shappimage
 	if [ "$elfClass" = "69" ]; then
+		sfsOffset=$(getVar 'sfsOffset')
 		return
 	fi
 
@@ -272,19 +275,22 @@ unmountAppImage() {
 
 # Find the location of the internal squashfuse binary based on system arch
 extractSquashfuse() {
-	if [ -x "$tempDir/.shImg-squashfuse_$UID" ]; then
+	# Don't extract it again if it's already there
+	if [ -x "$tempDir/shImg-sqfuse_$UID-$COMP" ]; then
 		squashfuse() {
-			"$tempDir/.shImg-squashfuse_$UID" "$@"
+			"$tempDir/shImg-sqfuse_$UID-$COMP" "$@"
 		}
 		return
 	fi
 
-	squashfuse() {
-		tail -c +$offset "$0" | \
-			head -c +$length > "$tempDir/.shImg-squashfuse_$UID"
+	# Extract it, mkruntime will modify this adding, a gzip extract into the
+	# pipe if `$NO_COMPRESS_SQUASHFUSE` is unset
+	tail -c +$offset "$0" | head -c +$length > "$tempDir/shImg-sqfuse_$UID-$COMP" &
+	chmod 0700 "$tempDir/shImg-sqfuse_$UID-$COMP" &
+	wait
 
-		chmod 0700 "$tempDir/.shImg-squashfuse_$UID"
-		"$tempDir/.shImg-squashfuse_$UID" "$@"
+	squashfuse() {
+		"$tempDir/shImg-sqfuse_$UID-$COMP" "$@"
 	}
 }
 
@@ -304,12 +310,12 @@ for i in "$@"; do
 					exit 1
 				fi
 			elif [ ! -w "$TARGET_APPIMAGE.appdir" ]; then
-				1>&2 echo "extraction directory $TARGET_APPIMAGE.appdir isn't writable!"
+				1>&2 echo "extraction directory ($TARGET_APPIMAGE.appdir) isn't writable!"
 				exit 1
 			fi
 
 			mountAppImage
-			cp -rv "$MNTDIR/"* "$MNTDIR/".* "$TARGET_APPIMAGE.appdir"
+			cp -rv "$MNTDIR/"* "$MNTDIR/".* "$TARGET_APPIMAGE.appdir" | cut -d ' ' -f 3-
 			unmountAppImage
 
 			exit 0;;
