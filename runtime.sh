@@ -26,6 +26,9 @@
 # * Most AppImage integration software does not recognize the format as it
 #   isn't standard and uses the sfsOffset variable as the offset instead of
 #   the ELF header
+# * Desktop integration information is stored in a zip file placed at the end
+#   of the AppImage. This makes it trivial to extract and desktop integration
+#   software won't even require a SquashFS driver.
 
 # Run these startup commands concurrently to make them faster
 [ -z $ARCH ] && ARCH=$(uname -m &)
@@ -61,7 +64,6 @@ sfsOffset=_sfs_o
 version=0.1.5
 #gpgSig= GPG signing NEI
 #gpgPub=
-updInfo=
 COMP=cmp
 helpStr='AppImage options:
   --appimage-extract          extract content from internal SquashFS image
@@ -351,8 +353,11 @@ for i in "$@"; do
 #		--appimage-signature)
 #			;;
 		--appimage-updateinfo)
-			[ "$0" != "$TARGET_APPIMAGE" ] && updInfo=$(getVar 'updInfo')
-			echo "$updInfo"
+			# L O N G sed one-liner to extract the update information from the
+			# zip file placed at the end of the AppImage, this can be done
+			# because it's one of the few files that doesn't get compressed and
+			# has a special header and footer to make it easily locatable
+			tac "$TARGET_APPIMAGE" | sed -n '/---END APPIMAGE \[updInfo\]---/,/---BEGIN APPIMAGE \[updInfo\]---/{ /---.* APPIMAGE \[updInfo\]---/d; p }'
 			exit 0;;
 		--appimage-version)
 			[ "$0" != "$TARGET_APPIMAGE" ] && version=$(getVar 'version')

@@ -11,34 +11,34 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Build all architectures (LZ4)
-      run:  ARCH=x86_64-aarch64-armhf ./mkruntime
+      run:  ARCH=x86_64-aarch64-armhf ./make_runtime.sh
 
     - name: Build x86_64 and aarch64 (LZ4)
-      run:  ARCH=x86_64-aarch64 ./mkruntime
+      run:  ARCH=x86_64-aarch64 ./make_runtime.sh
   
     - name: Build x86_64 (LZ4)
-      run:  ARCH=x86_64 ./mkruntime
+      run:  ARCH=x86_64 ./make_runtime.sh
   
     - name: Build aarch64 (LZ4)
-      run:  ARCH=aarch64 ./mkruntime
+      run:  ARCH=aarch64 ./make_runtime.sh
 
     - name: Build armhf (LZ4)
-      run:  ARCH=armhf ./mkruntime
+      run:  ARCH=armhf ./make_runtime.sh
   
     - name: Build all architectures (ZSTD)
-      run:  ARCH=x86_64-aarch64-armhf COMP=zstd ./mkruntime
+      run:  ARCH=x86_64-aarch64-armhf COMP=zstd ./make_runtime.sh
 
     - name: Build x86_64 and aarch64 (LZ4)
-      run:  ARCH=x86_64-aarch64 COMP=zstd ./mkruntime
+      run:  ARCH=x86_64-aarch64 COMP=zstd ./make_runtime.sh
   
     - name: Build x86_64 (LZ4)
-      run:  ARCH=x86_64 COMP=zstd ./mkruntime
+      run:  ARCH=x86_64 COMP=zstd ./make_runtime.sh
   
     - name: Build aarch64 (LZ4)
-      run:  ARCH=aarch64 COMP=zstd ./mkruntime
+      run:  ARCH=aarch64 COMP=zstd ./make_runtime.sh
 
     - name: Build armhf (LZ4)
-      run:  ARCH=armhf COMP=zstd ./mkruntime
+      run:  ARCH=armhf COMP=zstd ./make_runtime.sh
 
     - name: Upload build
       uses: "marvinpinto/action-automatic-releases@latest"
