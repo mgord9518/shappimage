@@ -63,7 +63,7 @@ case "$shell" in
 esac
 
 sfsOffset=_sfs_o
-version=0.1.5
+version=0.1.8
 #gpgSig= GPG signing NEI
 #gpgPub=
 COMP=cmp

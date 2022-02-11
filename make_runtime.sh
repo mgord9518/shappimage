@@ -76,7 +76,6 @@ cat runtime.sh | sed -e 's:#.*::' \
 	-e 's/-f /-f/g' \
 	-e 's/-s /-s/g' \
 	-e 's/-l /-l/g' \
-	-e 's/-n /-n/g' \
 	| tr -d '\t' | perl -0pe 's/;;\nesac/;;esac/g' | grep . >> runtime
 #cat runtime.sh | sed -e 's:#.*::' | tr -d '\t' | grep . >> runtime
 
