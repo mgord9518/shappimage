@@ -5,7 +5,12 @@
 # Make sure required tools are present
 [ ! $(command -v zip) ]             && echo 'infozip is required to add and use shImg desktop integration!' && cleanExit 1
 [ ! $(command -v rsvg-convert) ]    && echo 'rsvg-convert is required to convert icon!'                     && cleanExit 1
-[ ! $(command -v optipng) ]         && echo 'optipng is required to optimize icon!'                         && cleanExit 1
+
+# Use oxipng if in GH Actions
+if [ $GITHUB_ACTIONS ]; then
+	wget -O - 'https://github.com/shssoichiro/oxipng/releases/download/v5.0.1/oxipng-5.0.1-x86_64-unknown-linux-musl.tar.gz' \
+		| tar --strip-components 1 -xvf - '*/oxipng'
+fi
 
 cleanExit() {
 	umount 'mnt'
@@ -61,13 +66,15 @@ cp $(ls --color=never mnt/*.desktop | head -n 1) "$tempDir/desktop_entry"
 iconName=$(grep 'Icon=' "$tempDir/desktop_entry" | cut -d '=' -f 2-)
 cp "mnt/$iconName".png "$tempDir/icon/default.png"
 cp "mnt/$iconName".svg "$tempDir/icon/default.svg"
-optipng -o 7 -zm 9 -zs 3 "$tempDir/icon/default.png"
-[ -f "$tempDir/icon.svg" ] && rm "$tempDir/icon.png"
+#optipng -o 7 -zm 9 -zs 3 "$tempDir/icon/default.png"
+[ -f "$tempDir/icon.svg" ] && rm "$tempDir/icon/default.png"
+./oxipng -o max -s -Z "$tempDir/icon/default.png"
 
 # Both check image validity and convert svg
 ln -s "default.png" "$tempDir/icon/256.png"
 rsvg-convert -a -w 256 -h 256 "mnt/$iconName.svg" -o "$tempDir/icon/256.png"
-optipng -o 7 -zm 9 -zs 3 "$tempDir/icon/256.png"
+#optipng -o 7 -zm 9 -zs 3 "$tempDir/icon/256.png"
+./oxipng -o max -s -Z "$tempDir/icon/256.png"
 [ $? -ne 0 ] && echo 'icon is invalid!' && cleanExit 1
 
 cp 'mnt/usr/share/metainfo/'*.xml "$tempDir/metainfo"
