@@ -66,7 +66,7 @@ optipng -o 7 -zm 9 -zs 3 "$tempDir/icon/default.png"
 
 # Both check image validity and convert svg
 ln -s "default.png" "$tempDir/icon/256.png"
-rsvg-convert -a -w 256 -h 256 "$mnt/$iconName.svg" -o "$tempDir/icon/256.png"
+rsvg-convert -a -w 256 -h 256 "mnt/$iconName.svg" -o "$tempDir/icon/256.png"
 optipng -o 7 -zm 9 -zs 3 "$tempDir/icon/256.png"
 [ $? -ne 0 ] && echo 'icon is invalid!' && cleanExit 1
 
