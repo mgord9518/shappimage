@@ -13,7 +13,7 @@ if [ $GITHUB_ACTIONS ]; then
 fi
 
 cleanExit() {
-	umount 'mnt'
+	fusermount -u 'mnt'
 	rm -r '.APPIMAGE_RESOURCES' '.APPIMAGE_RESOURCES.zip' 'mnt' 2> /dev/null
 	exit "$1"
 }
@@ -68,14 +68,14 @@ cp "mnt/$iconName".png "$tempDir/icon/default.png"
 cp "mnt/$iconName".svg "$tempDir/icon/default.svg"
 #optipng -o 7 -zm 9 -zs 3 "$tempDir/icon/default.png"
 [ -f "$tempDir/icon.svg" ] && rm "$tempDir/icon/default.png"
-./oxipng -o max -s -Z "$tempDir/icon/default.png"
+./oxipng -o max -s -Z "$tempDir/icon/default.png" 2 > /dev/null
 
 # Both check image validity and convert svg
-ln -s "default.png" "$tempDir/icon/256.png"
+[ -f "$tempDir/icon/default.png" ] && ln -s "default.png" "$tempDir/icon/256.png"
 rsvg-convert -a -w 256 -h 256 "mnt/$iconName.svg" -o "$tempDir/icon/256.png"
 #optipng -o 7 -zm 9 -zs 3 "$tempDir/icon/256.png"
 ./oxipng -o max -s -Z "$tempDir/icon/256.png"
-[ $? -ne 0 ] && echo 'icon is invalid!' && cleanExit 1
+#[ $? -ne 0 ] && echo 'icon is invalid!' && cleanExit 1
 
 cp 'mnt/usr/share/metainfo/'*.xml "$tempDir/metainfo"
 
