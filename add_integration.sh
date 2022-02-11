@@ -3,12 +3,13 @@
 # Script to add desktop integration to a partially assembled shImg
 
 # Make sure required tools are present
-[ ! $(command -v zip) ]        && echo 'infozip is required to add and use shImg desktop integration!' && cleanExit 1
-[ ! $(command -v convert) ]    && echo 'imagemagick (convert) is required to convert icon!'            && cleanExit 1
+[ ! $(command -v zip) ]             && echo 'infozip is required to add and use shImg desktop integration!' && cleanExit 1
+[ ! $(command -v rsvg-convert) ]    && echo 'rsvg-convert is required to convert icon!'                     && cleanExit 1
+[ ! $(command -v optipng) ]         && echo 'optipng is required to optimize icon!'                         && cleanExit 1
 
 cleanExit() {
 	umount 'mnt'
-	rm -r '.APPIMAGE_RESOURCES' '.APPIMAGE_RESOURCES.zip' 'mnt'
+	rm -r '.APPIMAGE_RESOURCES' '.APPIMAGE_RESOURCES.zip' 'mnt' 2> /dev/null
 	exit "$1"
 }
 
@@ -55,7 +56,7 @@ cp $(ls --color=never mnt/*.desktop | head -n 1) "$tempDir/desktop_entry"
 [ ! -f "$tempDir/desktop_entry" ] && echo 'no desktop entry found!' && cleanExit 1
 
 # Same with icon, should only be one, remove extra if exists (prefer svg)
-# Default should be used to set the desktop entry icon, while 256.png should be
+# default.* should be used to set the desktop entry icon, while 256.png should be
 # used for thumbnailing
 iconName=$(grep 'Icon=' "$tempDir/desktop_entry" | cut -d '=' -f 2-)
 cp "mnt/$iconName".png "$tempDir/icon/default.png"
@@ -63,18 +64,13 @@ cp "mnt/$iconName".svg "$tempDir/icon/default.svg"
 optipng -o 7 -zm 9 -zs 3 "$tempDir/icon/default.png"
 [ -f "$tempDir/icon.svg" ] && rm "$tempDir/icon.png"
 
-# Convert icon
-iconFile=$(ls "$tempDir/icon/"* | head -n 1 )
-size=$(identify "$iconFile" | cut -d ' ' -f 3)
-width=$(echo "$size" | cut -d 'x' -f 1)
-height=$(echo "$size" | cut -d 'x' -f 2)
-
-# Both generate and check image validity in the same step
-convert -resize '256x256' -extent '256x256' -gravity center -background none "$iconFile" "$tempDir/icon/256.png"
-[ $? -ne 0 ] && echo 'icon is invalid!' && cleanExit 1
+# Both check image validity and convert svg
+ln -s "default.png" "$tempDir/icon/256.png"
+rsvg-convert -a -w 256 -h 256 "$mnt/$iconName.svg" "$tempDir/icon/256.png"
 optipng -o 7 -zm 9 -zs 3 "$tempDir/icon/256.png"
+[ $? -ne 0 ] && echo 'icon is invalid!' && cleanExit 1
 
-cp 'mnt/usr/share/metainfo/'*.appdata.xml "$tempDir/metainfo"
+cp 'mnt/usr/share/metainfo/'*.xml "$tempDir/metainfo"
 
 # Do not compress GPG signature or update information as they both should be
 # easy to extract as plain text
