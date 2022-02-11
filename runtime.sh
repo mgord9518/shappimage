@@ -28,7 +28,9 @@
 #   the ELF header
 # * Desktop integration information is stored in a zip file placed at the end
 #   of the AppImage. This makes it trivial to extract and desktop integration
-#   software won't even require a SquashFS driver.
+#   software won't even require a SquashFS driver. The update information can
+#   even be extracted without zip! See the code under `--appimage-updateinfo`
+#   flag to see how
 
 # Run these startup commands concurrently to make them faster
 [ -z $ARCH ] && ARCH=$(uname -m &)
@@ -250,11 +252,6 @@ mountAppImage() {
 	# Attempt to mount and thow an error if unsuccessful
 	squashfuse -o offset="$sfsOffset" "$TARGET_APPIMAGE" "$MNTDIR" 2> /dev/null
 	if [ $? -ne 0 ]; then
-		if [ $(wc -c < "$0") -eq $sfsOffset ]; then
-			1>&2 echo "no SquashFS image attached!"
-			exit 69
-		fi
-
 		1>&2 echo "failed to mount SquashFS image! bundle may be corrupted :("
 		exit 1
 	fi
