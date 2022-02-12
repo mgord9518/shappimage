@@ -62,11 +62,30 @@ fi
 # size of the runtime
 echo '#!/bin/sh
 #.shImg.#
-#flattended script to reduce size; see <github.com/mgord9518/shappimage> for src' > runtime
-
+#flattended script to reduce size; see <github.com/mgord9518/shappimage> for src
+alias A=alias
+A B="else"
+A C=cut
+A D="sed -e"
+A E=echo
+A F="command -v"
+A G=grep
+A H=head
+A I="if ["
+A T=tail
+A J="elif ["
+A R="1>&2 echo"
+A Y=exit
+A M=mkdir
+A S=sed
+A N=then
+' > runtime
+# ^ alias common commands and statements to single chars to drastically shrink
+# scripts
 
 # Experimental e x t r a flattening, might turn this into its own seperate application
-cat runtime.sh | sed -e 's:#.*::' \
+cat runtime.sh | sed \
+	-e 's/#.*//' \
 	-e 's/ \&\& /\&\&/g' \
 	-e 's/ \&/\&/g' \
 	-e 's/ || /||/g' \
@@ -83,9 +102,19 @@ cat runtime.sh | sed -e 's:#.*::' \
 	-e 's/cut -d /cut -d/g' \
 	-e 's/head -c /head -c/g' \
 	-e 's/tail -c /tail -c/g' \
-	-e 's/-f /-f/g' \
-	-e 's/-s /-s/g' \
-	-e 's/-l /-l/g' \
+	-e 's/cut/C/g' \
+	-e 's/head/H/g' \
+	-e 's/tail/T/g' \
+	-e 's/1>&2 echo/R/g' \
+	-e 's/exit/Y/g' \
+	-e 's/mkdir/M/g' \
+	-e 's/sed -e/D/g' \
+	-e 's/sed/S/g' \
+	-e 's/else/B/g' \
+	-e 's/elif \[/J/g' \
+	-e 's/if \[/I/g' \
+	-e 's/then/N/g' \
+	-e 's/command -v/F/g' \
 	| tr -d '\t' | perl -0pe 's/;;\nesac/;;esac/g' | grep . >> runtime
 #cat runtime.sh | sed -e 's:#.*::' | tr -d '\t' | grep . >> runtime
 
