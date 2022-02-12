@@ -10,6 +10,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: Install deps
+      run:  sudo apt install zopfli
+
     - name: Build all architectures (LZ4)
       run:  ARCH=x86_64-aarch64-armhf ./make_runtime.sh
 
