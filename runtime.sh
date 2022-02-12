@@ -24,7 +24,7 @@
 #   besides `mkruntime`, which is fully intended as a temporary builder for
 #   testing the script development
 # * Most AppImage integration software does not recognize the format as it
-#   isn't standard and uses the sfsOffset variable as the offset instead of
+#   isn't standard and uses the sfsoffset variable as the offset instead of
 #   the ELF header
 # * Desktop integration information is stored in a zip file placed at the end
 #   of the AppImage. This makes it trivial to extract and desktop integration
@@ -53,21 +53,21 @@ if [ "$ARCH" = armv7l ]; then
 fi
 case "$shell" in
 	*bash)
-		useBashisms=true;;
+		usebashisms=true;;
 	*osh)
-		useBashisms=true;;
+		usebashisms=true;;
 	*zsh)
-		useBashisms=true;;
+		usebashisms=true;;
 	*)
-		useBashisms=false;;
+		usebashisms=false;;
 esac
 
-sfsOffset=_sfs_o
-version=0.1.8
+sfsoffset=_sfs_o
+version=0.1.9
 #gpgSig= GPG signing NEI
 #gpgPub=
 COMP=cmp
-helpStr='AppImage options:
+helpstr='AppImage options:
   --appimage-extract          extract content from internal SquashFS image
   --appimage-help             print this help
   --appimage-mount            mount internal SquashFS to $MNTDIR, unmounting
@@ -92,95 +92,95 @@ unofficial AppImage runtime implemented in shell and squashfuse
 getSfsOffset() {
 	[ "$0" = "$TARGET_APPIMAGE" ] && return
 
-	elfEndianness=$(xxd -s 5 -l 1 -p "$TARGET_APPIMAGE" &)
-	elfClass=$(xxd -s 4 -l 1 -p "$TARGET_APPIMAGE" &)
+	elfendianness=$(xxd -s 5 -l 1 -p "$TARGET_APPIMAGE" &)
+	elfclass=$(xxd -s 4 -l 1 -p "$TARGET_APPIMAGE" &)
 	wait
 	
-	if [ "$useBashisms" = 'true' ]; then
+	if [ "$usebashisms" = 'true' ]; then
 		getSfsOffset_bashisms
 		return
 	fi
 
 	# How to interpret the bytes based on their endianness
 	# 0x01 is little, 0x02 is big, 0x6e is shappimage
-	if [ "$elfEndianness" = '01' ]; then
+	if [ "$elfendianness" = '01' ]; then
 		getBytes() {
 			xxd -e -s "$1" -l "$2" -g "$2" "$TARGET_APPIMAGE" | cut -d ' ' -f 2
 		}
-	elif [ "$elfEndianness" = '02' ] || [ "$elfEndianness" = '6e' ]; then
+	elif [ "$elfendianness" = '02' ] || [ "$elfendianness" = '6e' ]; then
 		getBytes() {
-			xxd -s "$1" -l "$2" -ps $TARGET_APPIMAGE 
+			xxd -s "$1" -l "$2" -p $TARGET_APPIMAGE 
 		}
 	else
-		1>&2 echo "invalid endianness (0x$elfEndianness), unable to find offset!"
+		1>&2 echo "invalid endianness (0x$elfendianness), unable to find offset!"
 		exit 1
 	fi
 
 	# 32 bit is 0x01, 64 bit is 0x02, shappimage is 0x69 (nice)
-	if [ "$elfClass" = "01" ]; then
+	if [ "$elfclass" = "01" ]; then
 		shentsize='0x'$(getBytes 46 2 &)
 		shnum='0x'$(getBytes 48 2 &)
 		shoff='0x'$(getBytes 32 4 &)
-	elif [ "$elfClass" = "02" ]; then
+	elif [ "$elfclass" = "02" ]; then
 		shentsize='0x'$(getBytes 58 2 &)
 		shnum='0x'$(getBytes 60 2 &)
 		shoff='0x'$(getBytes 40 8 &)
-	elif [ "$elfClass" = "69" ]; then
-		sfsOffset=$(getVar 'sfsOffset')
+	elif [ "$elfclass" = "69" ]; then
+		sfsoffset=$(getVar 'sfsoffset')
 		return
 	fi
 
 	wait
 
-	sfsOffset=$(($shnum*$shentsize+$shoff))
+	sfsoffset=$(($shnum*$shentsize+$shoff))
 }
 
 # WIP -- attempt to utilize "bashisms" to speed up the script for shells that
 # can have them.
 getSfsOffset_bashisms() {
-	if [ "$elfEndianness" = '01' ]; then
+	if [ "$elfendianness" = '01' ]; then
 		header=$(xxd -e -s 4 -l 70 -g 16 "$TARGET_APPIMAGE" | cut -d ' ' -f 2)
-		elfClass=${header:30:2}
-		if [ "$elfClass" = "01" ]; then
+		elfclass=${header:30:2}
+		if [ "$elfclass" = "01" ]; then
 			shentsize='0x'${header:74:4}
 			shnum='0x'${header:70:4}
 			shoff='0x'${header:33:8}
-		elif [ "$elfClass" = "02" ]; then
+		elif [ "$elfclass" = "02" ]; then
 			shentsize='0x'${header:132:4}
 			shnum='0x'${header:136:4}
 			shoff='0x'${header:74:16}
 		fi
 		# Doesn't support big endianness yet, but that is very rare on modern
 		# processors anyway
-	elif [ "$elfEndianness" = '02' ] || [ "$elfEndianness" = '6e' ]; then
+	elif [ "$elfendianness" = '02' ] || [ "$elfendianness" = '6e' ]; then
 		header=$(xxd -s 4 -l 58 -p "$TARGET_APPIMAGE")
-		elfClass=${header:0:2}
-#		if [ "$elfClass" = "01" ]; then
+		elfclass=${header:0:2}
+#		if [ "$elfclass" = "01" ]; then
 #			shentsize='0x'${header:74:4}
 #			shnum='0x'${header:70:4}
 #			shoff='0x'${header:33:8}
-#		elif [ "$elfClass" = "02" ]; then
+#		elif [ "$elfclass" = "02" ]; then
 #			shentsize='0x'${header:132:4}
 #			shnum='0x'${header:136:4}
 #			shoff='0x'${header:74:16}
 #		fi
-		if [ "$elfClass" = "02" ]; then
+		if [ "$elfclass" = "02" ]; then
 			shentsize='0x'${header:132:4}
 			shnum='0x'${header:136:4}
 			shoff='0x'${header:74:16}
 		fi
 	else
-		1>&2 echo "invalid endianness (0x$elfEndianness), unable to find offset!"
+		1>&2 echo "invalid endianness (0x$elfendianness), unable to find offset!"
 		exit 1
 	fi
 
 	# Get offset for another shappimage
-	if [ "$elfClass" = "69" ]; then
-		sfsOffset=$(getVar 'sfsOffset')
+	if [ "$elfclass" = "69" ]; then
+		sfsoffset=$(getVar 'sfsoffset')
 		return
 	fi
 
-	sfsOffset=$(($shnum*$shentsize+$shoff))
+	sfsoffset=$(($shnum*$shentsize+$shoff))
 }
 
 # Mount the SquashFS image either using squashfuse on the host system or by
@@ -215,7 +215,7 @@ mountAppImage() {
 	# Set variable for random numbers if not available in running shell
 	[ -z $RANDOM ] && RANDOM=$(tr -dc '0-9a-zA-Z' < /dev/urandom | head -c 8 &)
 
-	if [ "$useBashisms" = "false" ]; then
+	if [ "$usebashisms" = "false" ]; then
 		runId="$(basename $TARGET_APPIMAGE | head -c 8 &)$RANDOM"
 	else
 		runId="$(basename $TARGET_APPIMAGE)"
@@ -250,7 +250,7 @@ mountAppImage() {
 	command -v 'squashfuse' > /dev/null || extractSquashfuse
 
 	# Attempt to mount and thow an error if unsuccessful
-	squashfuse -o offset="$sfsOffset" "$TARGET_APPIMAGE" "$MNTDIR" 2> /dev/null
+	squashfuse -o offset="$sfsoffset" "$TARGET_APPIMAGE" "$MNTDIR" 2> /dev/null
 	if [ $? -ne 0 ]; then
 		1>&2 echo "failed to mount SquashFS image! bundle may be corrupted :("
 		exit 1
@@ -319,7 +319,7 @@ for i in "$@"; do
 
 			exit 0;;
 		--appimage-help)
-			echo "$helpStr"
+			echo "$helpstr"
 			exit 0;;
 		--appimage-mount)
 			mountAppImage
@@ -329,7 +329,7 @@ for i in "$@"; do
 			exit 0;;
 		--appimage-offset)
 			getSfsOffset
-			echo "$sfsOffset"
+			echo "$sfsoffset"
 			exit 0;;
 		--appimage-portable-home)
 			mkdir "$0.home"
