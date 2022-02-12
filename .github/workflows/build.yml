@@ -29,18 +29,18 @@ jobs:
       run:  ARCH=armhf ./make_runtime.sh
   
     - name: Build all architectures (ZSTD)
-      run:  ARCH=x86_64-aarch64-armhf COMP=zstd ./make_runtime.sh
+      run:  rm -r squashfuse; ARCH=x86_64-aarch64-armhf COMP=zstd ./make_runtime.sh
 
-    - name: Build x86_64 and aarch64 (LZ4)
+    - name: Build x86_64 and aarch64 (ZSTD)
       run:  ARCH=x86_64-aarch64 COMP=zstd ./make_runtime.sh
   
-    - name: Build x86_64 (LZ4)
+    - name: Build x86_64 (ZSTD)
       run:  ARCH=x86_64 COMP=zstd ./make_runtime.sh
   
-    - name: Build aarch64 (LZ4)
+    - name: Build aarch64 (ZSTD)
       run:  ARCH=aarch64 COMP=zstd ./make_runtime.sh
 
-    - name: Build armhf (LZ4)
+    - name: Build armhf (ZSTD)
       run:  ARCH=armhf COMP=zstd ./make_runtime.sh
 
     - name: Upload build
