@@ -207,7 +207,7 @@ mountAppImage() {
 			length=ar32_l;;
 	esac
 
-	if [ $((length)) -eq 0 ]; then
+	if [ $length -eq 0 ]; then
 		1>&2 echo "your machine architecture ($ARCH) is not supported in this bundle! :("
 		exit 1
 	fi

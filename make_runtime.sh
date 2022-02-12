@@ -14,35 +14,47 @@
 # Download required squashfuse squashfusearies per architecture if they don't already
 # exist
 if [[ "$ARCH" = *'x86_64'* ]]; then
-	if [ ! -f 'squashfuse/squashfuse.x86_64' ]; then
+	if [ ! -f 'squashfuse/squashfuse.x86_64'* ]; then
 		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" \
 			-O squashfuse/squashfuse.x86_64
 	fi
-	[ -z $NO_COMPRESS_SQUASHFUSE ] && gzip -9n squashfuse/squashfuse.x86_64
-else
-	touch 'squashfuse/squashfuse.x86_64'
+	if [ -z $NO_COMPRESS_SQUASHFUSE ]; then
+		zopfli --i1000 squashfuse/squashfuse.x86_64
+		rm squashfuse/squashfuse.x86_64
+		binList="squashfuse/squashfuse.x86_64.gz"
+	else
+		binList="squashfuse/squashfuse.x86_64"
+	fi
 fi
 if [[ "$ARCH" = *'aarch64'* ]]; then
-	if [ ! -f 'squashfuse/squashfuse.aarch64' ]; then
+	if [ ! -f 'squashfuse/squashfuse.aarch64'* ]; then
 		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP.aarch64" \
 			-O squashfuse/squashfuse.aarch64
 	fi
-	[ -z $NO_COMPRESS_SQUASHFUSE ] && gzip -9n squashfuse/squashfuse.aarch64
-else
-	touch 'squashfuse/squashfuse.aarch64'
+	if [ -z $NO_COMPRESS_SQUASHFUSE ]; then
+		zopfli --i1000 squashfuse/squashfuse.aarch64
+		rm squashfuse/squashfuse.aarch64
+		binList="$binList squashfuse/squashfuse.aarch64.gz"
+	else
+		binList="$binList squashfuse/squashfuse.aarch64"
+	fi
 fi
 if [[ "$ARCH" = *'armhf'* ]]; then
-	if [ ! -f 'squashfuse/squashfuse.armhf' ]; then
+	if [ ! -f 'squashfuse/squashfuse.armhf'* ]; then
 		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP.armv7l" \
 			-O squashfuse/squashfuse.armhf
 	fi
-	[ -z $NO_COMPRESS_SQUASHFUSE ] && gzip -9n squashfuse/squashfuse.armhf
-else
-	touch 'squashfuse/squashfuse.armhf'
+	if [ -z $NO_COMPRESS_SQUASHFUSE ]; then
+		zopfli --i1000 squashfuse/squashfuse.armhf
+		rm squashfuse/squashfuse.armhf
+		binList="$binList squashfuse/squashfuse.armhf.gz"
+	else
+		binList="$binList squashfuse/squashfuse.armhf"
+	fi
 fi
 
 # Just for the time being as I don't have an x86 build yet
-touch squashfuse/squashfuse.i386
+#touch squashfuse/squashfuse.i386
 
 # Collapse the script to make it smaller, not really sure whether I should keep
 # it or not as it also obfuscates the code and the size difference makes little
@@ -107,7 +119,7 @@ sed -i "s/ar64_l/$ar64_l/" runtime
 sed -i "s/ar32_o/$ar32_o/" runtime
 sed -i "s/ar32_l/$ar32_l/" runtime
 
-runLen=$(cat runtime squashfuse/squashfuse.* | wc -c | tr -dc '0-9')
+runLen=$(cat runtime $binList | wc -c | tr -dc '0-9')
 
 # 6 digits long is enough for a 1MB runtime, which should be more than enough
 # besides if everything is statically linked. If that is the case, it may be
@@ -116,8 +128,8 @@ runLen=$(cat runtime squashfuse/squashfuse.* | wc -c | tr -dc '0-9')
 sfsOffset=$(printf "%06d" "$runLen")
 sed -i "s/_sfs_o/$sfsOffset/" runtime
 
-cat runtime squashfuse/squashfuse.x86_64* squashfuse/squashfuse.i386* squashfuse/squashfuse.aarch64* squashfuse/squashfuse.armhf* > runtime2
+cat runtime $binList > runtime2
 
-#rm runtime
-rm -r squashfuse
+rm runtime
+#rm -r squashfuse
 mv runtime2 "runtime-$COMP-$ARCH"
