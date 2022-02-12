@@ -72,8 +72,9 @@ A F="command -v"
 A G=grep
 A H=head
 A I="if ["
-A T=tail
 A J="elif ["
+A K="gzip"
+A T=tail
 A R="1>&2 echo"
 A Y=exit
 A M=mkdir
@@ -83,7 +84,8 @@ A N=then
 # ^ alias common commands and statements to single chars to drastically shrink
 # scripts
 
-# Experimental e x t r a flattening, might turn this into its own seperate application
+# Experimental e x t r a flattening, might turn this into its own seperate
+# project
 cat runtime.sh | sed \
 	-e 's/#.*//' \
 	-e 's/ \&\& /\&\&/g' \
@@ -118,7 +120,7 @@ cat runtime.sh | sed \
 	| tr -d '\t' | perl -0pe 's/;;\nesac/;;esac/g' | grep . >> runtime
 #cat runtime.sh | sed -e 's:#.*::' | tr -d '\t' | grep . >> runtime
 
-[ -z $NO_COMPRESS_SQUASHFUSE ] && sed -i 's/head -c+$length>/head -c+$length|gzip -d>/' runtime
+[ -z $NO_COMPRESS_SQUASHFUSE ] && sed -i 's/H -c+$length>/H -c+$length|K -d>/' runtime
 sed -i "s/=cmp/=$COMP/" runtime
 
 # Sizes of all files being packed into the runtime
