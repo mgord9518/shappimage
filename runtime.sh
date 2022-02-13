@@ -104,11 +104,11 @@ get_sfs_offset() {
 	# How to interpret the bytes based on their endianness
 	# 0x01 is little, 0x02 is big, 0x6e is shappimage
 	if [ "$elf_endianness" = '01' ]; then
-		getBytes() {
+		get_bytes() {
 			xxd -e -s "$1" -l "$2" -g "$2" "$TARGET_APPIMAGE" | cut -d ' ' -f 2
 		}
 	elif [ "$elf_endianness" = '02' ] || [ "$elf_endianness" = '6e' ]; then
-		getBytes() {
+		get_bytes() {
 			xxd -s "$1" -l "$2" -p $TARGET_APPIMAGE 
 		}
 	else
@@ -118,13 +118,13 @@ get_sfs_offset() {
 
 	# 32 bit is 0x01, 64 bit is 0x02, shappimage is 0x69 (nice)
 	if [ "$elf_class" = "01" ]; then
-		shentsize='0x'$(getBytes 46 2 &)
-		shnum='0x'$(getBytes 48 2 &)
-		shoff='0x'$(getBytes 32 4 &)
+		shentsize='0x'$(get_bytes 46 2 &)
+		shnum='0x'$(get_bytes 48 2 &)
+		shoff='0x'$(get_bytes 32 4 &)
 	elif [ "$elf_class" = "02" ]; then
-		shentsize='0x'$(getBytes 58 2 &)
-		shnum='0x'$(getBytes 60 2 &)
-		shoff='0x'$(getBytes 40 8 &)
+		shentsize='0x'$(get_bytes 58 2 &)
+		shnum='0x'$(get_bytes 60 2 &)
+		shoff='0x'$(get_bytes 40 8 &)
 	elif [ "$elf_class" = "69" ]; then
 		sfs_offset=$(get_var 'sfs_offset')
 		return
@@ -351,7 +351,7 @@ for i in "$@"; do
 			# zip file placed at the end of the AppImage, this can be done
 			# because it's one of the few files that doesn't get compressed and
 			# has a special header and footer to make it easily locatable
-			tac "$TARGET_APPIMAGE" | sed -n '/---END APPIMAGE \[updInfo\]---/,/---BEGIN APPIMAGE \[updInfo\]---/{ /---.* APPIMAGE \[updInfo\]---/d; p }'
+			tac "$TARGET_APPIMAGE" | sed -n '/---END APPIMAGE \[update_info\]---/,/---BEGIN APPIMAGE \[update_info\]---/{ /---.* APPIMAGE \[update_info\]---/d; p }'
 			exit 0;;
 		--appimage-version)
 			[ "$0" != "$TARGET_APPIMAGE" ] && version=$(get_var 'version')

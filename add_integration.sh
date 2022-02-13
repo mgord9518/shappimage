@@ -48,8 +48,8 @@ mkdir "mnt"
 # If you have zip, simply extract the file, disregarding the first and final lines
 
 # Here is a one-liner that can extract the update information using `tac` and `sed`:
-# tac `file.AppImage` | sed -n '/---END APPIMAGE \[updInfo\]---/,/-----BEGIN APPIMAGE \[updInfo\]-----/{ /-----.*APPIMAGE \[updInfo\]-----/d; p }'
-[ "${#2}" -gt 0 ] && echo -ne "---BEGIN APPIMAGE [updInfo]---\n$2\n---END APPIMAGE [updInfo]---"> "$tempDir/updInfo"
+# tac `file.AppImage` | sed -n '/---END APPIMAGE \[update_info\]---/,/-----BEGIN APPIMAGE \[update_info\]-----/{ /-----.* APPIMAGE \[update_info\]-----/d; p }'
+[ "${#2}" -gt 0 ] && echo "---BEGIN APPIMAGE [update_info]---\n$2\n---END APPIMAGE [update_info]---"> "$tempDir/update_info"
 
 offset=$("$1" --appimage-offset)
 squashfuse -o offset="$offset" "$1" 'mnt'
@@ -81,7 +81,7 @@ cp 'mnt/usr/share/metainfo/'*.xml "$tempDir/metainfo"
 
 # Do not compress GPG signature or update information as they both should be
 # easy to extract as plain text
-zip -r -n updInfo '.APPIMAGE_RESOURCES.zip' '.APPIMAGE_RESOURCES'
+zip -r -n update_info '.APPIMAGE_RESOURCES.zip' '.APPIMAGE_RESOURCES'
 cat '.APPIMAGE_RESOURCES.zip' >> "$1"
 zip -A "$1"
 
