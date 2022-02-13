@@ -96,10 +96,10 @@ get_sfs_offset() {
 	elf_class=$(xxd -s 4 -l 1 -p "$TARGET_APPIMAGE" &)
 	wait
 	
-	if [ "$use_bashisms" = 'true' ]; then
-		get_sfs_offset_bashisms
-		return
-	fi
+#	if [ "$use_bashisms" = 'true' ]; then
+#		get_sfs_offset_bashisms
+#		return
+#	fi
 
 	# How to interpret the bytes based on their endianness
 	# 0x01 is little, 0x02 is big, 0x6e is shappimage
@@ -137,24 +137,10 @@ get_sfs_offset() {
 
 # WIP -- attempt to utilize "bashisms" to speed up the script for shells that
 # can have them.
-get_sfs_offset_bashisms() {
-	if [ "$elf_endianness" = '01' ]; then
-		header=$(xxd -e -s 4 -l 70 -g 16 "$TARGET_APPIMAGE" | cut -d ' ' -f 2)
-		elf_class=${header:30:2}
-		if [ "$elf_class" = "01" ]; then
-			shentsize='0x'${header:74:4}
-			shnum='0x'${header:70:4}
-			shoff='0x'${header:33:8}
-		elif [ "$elf_class" = "02" ]; then
-			shentsize='0x'${header:132:4}
-			shnum='0x'${header:136:4}
-			shoff='0x'${header:74:16}
-		fi
-		# Doesn't support big endianness yet, but that is very rare on modern
-		# processors anyway
-	elif [ "$elf_endianness" = '02' ] || [ "$elf_endianness" = '6e' ]; then
-		header=$(xxd -s 4 -l 58 -p "$TARGET_APPIMAGE")
-		elf_class=${header:0:2}
+#get_sfs_offset_bashisms() {
+#	if [ "$elf_endianness" = '01' ]; then
+#		header=$(xxd -e -s 4 -l 70 -g 16 "$TARGET_APPIMAGE" | cut -d ' ' -f 2)
+#		elf_class=${header:30:2}
 #		if [ "$elf_class" = "01" ]; then
 #			shentsize='0x'${header:74:4}
 #			shnum='0x'${header:70:4}
@@ -164,24 +150,38 @@ get_sfs_offset_bashisms() {
 #			shnum='0x'${header:136:4}
 #			shoff='0x'${header:74:16}
 #		fi
-		if [ "$elf_class" = "02" ]; then
-			shentsize='0x'${header:132:4}
-			shnum='0x'${header:136:4}
-			shoff='0x'${header:74:16}
-		fi
-	else
-		1>&2 echo "invalid endianness (0x$elf_endianness), unable to find offset!"
-		exit 1
-	fi
-
-	# Get offset for another shappimage
-	if [ "$elf_class" = "69" ]; then
-		sfs_offset=$(get_var 'sfs_offset')
-		return
-	fi
-
-	sfs_offset=$(($shnum*$shentsize+$shoff))
-}
+#		# Doesn't support big endianness yet, but that is very rare on modern
+#		# processors anyway
+#	elif [ "$elf_endianness" = '02' ] || [ "$elf_endianness" = '6e' ]; then
+#		header=$(xxd -s 4 -l 58 -p "$TARGET_APPIMAGE")
+#		elf_class=${header:0:2}
+##		if [ "$elf_class" = "01" ]; then
+##			shentsize='0x'${header:74:4}
+##			shnum='0x'${header:70:4}
+##			shoff='0x'${header:33:8}
+##		elif [ "$elf_class" = "02" ]; then
+##			shentsize='0x'${header:132:4}
+##			shnum='0x'${header:136:4}
+##			shoff='0x'${header:74:16}
+##		fi
+#		if [ "$elf_class" = "02" ]; then
+#			shentsize='0x'${header:132:4}
+#			shnum='0x'${header:136:4}
+#			shoff='0x'${header:74:16}
+#		fi
+#	else
+#		1>&2 echo "invalid endianness (0x$elf_endianness), unable to find offset!"
+#		exit 1
+#	fi
+#
+#	# Get offset for another shappimage
+#	if [ "$elf_class" = "69" ]; then
+#		sfs_offset=$(get_var 'sfs_offset')
+#		return
+#	fi
+#
+#	sfs_offset=$(($shnum*$shentsize+$shoff))
+#}
 
 # Mount the SquashFS image either using squashfuse on the host system or by
 # extracting an internal squashfuse binary.
