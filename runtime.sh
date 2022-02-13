@@ -24,7 +24,7 @@
 #   besides `mkruntime`, which is fully intended as a temporary builder for
 #   testing the script development
 # * Most AppImage integration software does not recognize the format as it
-#   isn't standard and uses the sfsoffset variable as the offset instead of
+#   isn't standard and uses the sfs_offset variable as the offset instead of
 #   the ELF header
 # * Desktop integration information is stored in a zip file placed at the end
 #   of the AppImage. This makes it trivial to extract and desktop integration
@@ -42,32 +42,32 @@ shell=$(readlink "/proc/$$/exe" &)
 wait
 
 if [ $TMPDIR ]; then
-	tempDir="$TMPDIR"
+	temp_dir="$TMPDIR"
 elif [ $XDG_RUNTIME_DIR ]; then
-	tempDir="$XDG_RUNTIME_DIR"
+	temp_dir="$XDG_RUNTIME_DIR"
 else
-	tempDir="/run/user/$UID"
+	temp_dir="/run/user/$UID"
 fi
 if [ "$ARCH" = armv7l ]; then
 	ARCH=armhf
 fi
 case "$shell" in
 	*bash)
-		usebashisms=true;;
+		use_bashisms=true;;
 	*osh)
-		usebashisms=true;;
+		use_bashisms=true;;
 	*zsh)
-		usebashisms=true;;
+		use_bashisms=true;;
 	*)
-		usebashisms=false;;
+		use_bashisms=false;;
 esac
 
-sfsoffset=_sfs_o
+sfs_offset=_sfs_o
 version=0.1.9
 #gpgSig= GPG signing NEI
 #gpgPub=
 COMP=cmp
-helpstr='AppImage options:
+help_str='AppImage options:
   --appimage-extract          extract content from internal SquashFS image
   --appimage-help             print this help
   --appimage-mount            mount internal SquashFS to $MNTDIR, unmounting
@@ -89,103 +89,103 @@ unofficial AppImage runtime implemented in shell and squashfuse
 
 # Calculate ELF size in pure shell using `shnum * shentsize + shoff`
 # Most of this code is just to find their values
-getSfsOffset() {
+get_sfs_offset() {
 	[ "$0" = "$TARGET_APPIMAGE" ] && return
 
-	elfendianness=$(xxd -s 5 -l 1 -p "$TARGET_APPIMAGE" &)
-	elfclass=$(xxd -s 4 -l 1 -p "$TARGET_APPIMAGE" &)
+	elf_endianness=$(xxd -s 5 -l 1 -p "$TARGET_APPIMAGE" &)
+	elf_class=$(xxd -s 4 -l 1 -p "$TARGET_APPIMAGE" &)
 	wait
 	
-	if [ "$usebashisms" = 'true' ]; then
-		getSfsOffset_bashisms
+	if [ "$use_bashisms" = 'true' ]; then
+		get_sfs_offset_bashisms
 		return
 	fi
 
 	# How to interpret the bytes based on their endianness
 	# 0x01 is little, 0x02 is big, 0x6e is shappimage
-	if [ "$elfendianness" = '01' ]; then
+	if [ "$elf_endianness" = '01' ]; then
 		getBytes() {
 			xxd -e -s "$1" -l "$2" -g "$2" "$TARGET_APPIMAGE" | cut -d ' ' -f 2
 		}
-	elif [ "$elfendianness" = '02' ] || [ "$elfendianness" = '6e' ]; then
+	elif [ "$elf_endianness" = '02' ] || [ "$elf_endianness" = '6e' ]; then
 		getBytes() {
 			xxd -s "$1" -l "$2" -p $TARGET_APPIMAGE 
 		}
 	else
-		1>&2 echo "invalid endianness (0x$elfendianness), unable to find offset!"
+		1>&2 echo "invalid endianness (0x$elf_endianness), unable to find offset!"
 		exit 1
 	fi
 
 	# 32 bit is 0x01, 64 bit is 0x02, shappimage is 0x69 (nice)
-	if [ "$elfclass" = "01" ]; then
+	if [ "$elf_class" = "01" ]; then
 		shentsize='0x'$(getBytes 46 2 &)
 		shnum='0x'$(getBytes 48 2 &)
 		shoff='0x'$(getBytes 32 4 &)
-	elif [ "$elfclass" = "02" ]; then
+	elif [ "$elf_class" = "02" ]; then
 		shentsize='0x'$(getBytes 58 2 &)
 		shnum='0x'$(getBytes 60 2 &)
 		shoff='0x'$(getBytes 40 8 &)
-	elif [ "$elfclass" = "69" ]; then
-		sfsoffset=$(getVar 'sfsoffset')
+	elif [ "$elf_class" = "69" ]; then
+		sfs_offset=$(get_var 'sfs_offset')
 		return
 	fi
 
 	wait
 
-	sfsoffset=$(($shnum*$shentsize+$shoff))
+	sfs_offset=$(($shnum*$shentsize+$shoff))
 }
 
 # WIP -- attempt to utilize "bashisms" to speed up the script for shells that
 # can have them.
-getSfsOffset_bashisms() {
-	if [ "$elfendianness" = '01' ]; then
+get_sfs_offset_bashisms() {
+	if [ "$elf_endianness" = '01' ]; then
 		header=$(xxd -e -s 4 -l 70 -g 16 "$TARGET_APPIMAGE" | cut -d ' ' -f 2)
-		elfclass=${header:30:2}
-		if [ "$elfclass" = "01" ]; then
+		elf_class=${header:30:2}
+		if [ "$elf_class" = "01" ]; then
 			shentsize='0x'${header:74:4}
 			shnum='0x'${header:70:4}
 			shoff='0x'${header:33:8}
-		elif [ "$elfclass" = "02" ]; then
+		elif [ "$elf_class" = "02" ]; then
 			shentsize='0x'${header:132:4}
 			shnum='0x'${header:136:4}
 			shoff='0x'${header:74:16}
 		fi
 		# Doesn't support big endianness yet, but that is very rare on modern
 		# processors anyway
-	elif [ "$elfendianness" = '02' ] || [ "$elfendianness" = '6e' ]; then
+	elif [ "$elf_endianness" = '02' ] || [ "$elf_endianness" = '6e' ]; then
 		header=$(xxd -s 4 -l 58 -p "$TARGET_APPIMAGE")
-		elfclass=${header:0:2}
-#		if [ "$elfclass" = "01" ]; then
+		elf_class=${header:0:2}
+#		if [ "$elf_class" = "01" ]; then
 #			shentsize='0x'${header:74:4}
 #			shnum='0x'${header:70:4}
 #			shoff='0x'${header:33:8}
-#		elif [ "$elfclass" = "02" ]; then
+#		elif [ "$elf_class" = "02" ]; then
 #			shentsize='0x'${header:132:4}
 #			shnum='0x'${header:136:4}
 #			shoff='0x'${header:74:16}
 #		fi
-		if [ "$elfclass" = "02" ]; then
+		if [ "$elf_class" = "02" ]; then
 			shentsize='0x'${header:132:4}
 			shnum='0x'${header:136:4}
 			shoff='0x'${header:74:16}
 		fi
 	else
-		1>&2 echo "invalid endianness (0x$elfendianness), unable to find offset!"
+		1>&2 echo "invalid endianness (0x$elf_endianness), unable to find offset!"
 		exit 1
 	fi
 
 	# Get offset for another shappimage
-	if [ "$elfclass" = "69" ]; then
-		sfsoffset=$(getVar 'sfsoffset')
+	if [ "$elf_class" = "69" ]; then
+		sfs_offset=$(get_var 'sfs_offset')
 		return
 	fi
 
-	sfsoffset=$(($shnum*$shentsize+$shoff))
+	sfs_offset=$(($shnum*$shentsize+$shoff))
 }
 
 # Mount the SquashFS image either using squashfuse on the host system or by
 # extracting an internal squashfuse binary.
-mountAppImage() {
+mount_appimage() {
 	# If AppDir instead of AppImage, return quickly
 	if [ -d "$TARGET_APPIMAGE" ] && [ -x "$TARGET_APPIMAGE/AppRun" ]; then
 		MNTDIR="$TARGET_APPIMAGE"
@@ -215,42 +215,42 @@ mountAppImage() {
 	# Set variable for random numbers if not available in running shell
 	[ -z $RANDOM ] && RANDOM=$(tr -dc '0-9a-zA-Z' < /dev/urandom | head -c 8 &)
 
-	if [ "$usebashisms" = "false" ]; then
-		runId="$(basename $TARGET_APPIMAGE | head -c 8 &)$RANDOM"
+	if [ "$use_bashisms" = "false" ]; then
+		run_id="$(basename $TARGET_APPIMAGE | head -c 8 &)$RANDOM"
 	else
-		runId="$(basename $TARGET_APPIMAGE)"
-		runId="${runId:0:8}$RANDOM"
+		run_id="$(basename $TARGET_APPIMAGE)"
+		run_id="${run_id:0:8}$RANDOM"
 	fi
 
 	wait
 	
-	[ -z $MNTDIR ] && MNTDIR="$tempDir/.mount_$runId"
+	[ -z $MNTDIR ] && MNTDIR="$temp_dir/.mount_$run_id"
 
 	# Ensure that the AppImage exits gracefully and unmounts before the script
 	# exits
-	trap 'unmountAppImage && exit 1' INT
+	trap 'unmount_appimage && exit 1' INT
 
 	# Create the temporary and mounting directories if they don't exist
-	if [ ! -d "$tempDir" ] && [ -w "$tempDir/.." ]; then
-		mkdir -p "$tempDir"
-	elif [ ! -d "$tempDir" ] && [ ! -w "$tempDir/.." ]; then
-		1>&2 echo "cannot create temporary directory $tempDir! parent directory not writable!"
+	if [ ! -d "$temp_dir" ] && [ -w "$temp_dir/.." ]; then
+		mkdir -p "$temp_dir"
+	elif [ ! -d "$temp_dir" ] && [ ! -w "$temp_dir/.." ]; then
+		1>&2 echo "cannot create temporary directory $temp_dir! parent directory not writable!"
 	fi
 
-	if [ ! -d "$MNTDIR" ] && [ -w "$tempDir" ]; then
+	if [ ! -d "$MNTDIR" ] && [ -w "$temp_dir" ]; then
 		mkdir -p "$MNTDIR"
-	elif [ ! -w "$tempDir" ]; then
-		1>&2 echo "failed to create mount dir! $tempDir not writable!"
+	elif [ ! -w "$temp_dir" ]; then
+		1>&2 echo "failed to create mount dir! $temp_dir not writable!"
 		exit 1
 	fi
 
-	getSfsOffset
+	get_sfs_offset
 
 	# If the user doesn't have squashfuse installed, extract the internal one
-	command -v 'squashfuse' > /dev/null || extractSquashfuse
+	command -v 'squashfuse' > /dev/null || extract_squashfuse
 
 	# Attempt to mount and thow an error if unsuccessful
-	squashfuse -o offset="$sfsoffset" "$TARGET_APPIMAGE" "$MNTDIR" 2> /dev/null
+	squashfuse -o offset="$sfs_offset" "$TARGET_APPIMAGE" "$MNTDIR" 2> /dev/null
 	if [ $? -ne 0 ]; then
 		1>&2 echo "failed to mount SquashFS image! bundle may be corrupted :("
 		exit 1
@@ -259,7 +259,7 @@ mountAppImage() {
 
 # Unmount prefering `fusermount` which is on practically all common desktop Linux
 # distos, fall back on `umount` just in case
-unmountAppImage() {
+unmount_appimage() {
 	[ -d "$TARGET_APPIMAGE" ] && return
 
 	if command -v 'fusermount' > /dev/null; then
@@ -269,31 +269,28 @@ unmountAppImage() {
 	fi
 
 	# Clean up all empty directories
-	rmdir "$tempDir/.mount"* 2> /dev/null &
+	rmdir "$temp_dir/.mount"* 2> /dev/null &
 }
 
 # Find the location of the internal squashfuse binary based on system arch
-extractSquashfuse() {
+extract_squashfuse() {
+	temp_sqfuse="$temp_dir/shImg-sqfuse_$UID-$COMP"
 	# Don't extract it again if it's already there
-	if [ -x "$tempDir/shImg-sqfuse_$UID-$COMP" ]; then
-		squashfuse() {
-			"$tempDir/shImg-sqfuse_$UID-$COMP" "$@"
-		}
+	if [ -x "$temp_sqfuse" ]; then
+			"$temp_sqfuse"
 		return
 	fi
 
 	# Extract it, mkruntime will modify this adding, a gzip extract into the
 	# pipe if `$NO_COMPRESS_SQUASHFUSE` is unset
-	tail -c +$offset "$0" | head -c +$length > "$tempDir/shImg-sqfuse_$UID-$COMP" &
-	chmod 0700 "$tempDir/shImg-sqfuse_$UID-$COMP" &
+	tail -c +$offset "$0" | head -c +$length > "$temp_dir/shImg-sqfuse_$UID-$COMP" &
+	chmod 0700 "$temp_sqfuse" &
 	wait
 
-	squashfuse() {
-		"$tempDir/shImg-sqfuse_$UID-$COMP" "$@"
-	}
+	alias squashfuse="$temp_sqfuse"
 }
 
-getVar() {
+get_var() {
 	grep -a -m 1 "$1=" "$TARGET_APPIMAGE" | cut -d '=' -f 2-
 }
 
@@ -313,23 +310,23 @@ for i in "$@"; do
 				exit 1
 			fi
 
-			mountAppImage
+			mount_appimage
 			cp -rv "$MNTDIR/"* "$MNTDIR/".* "$TARGET_APPIMAGE.appdir" | cut -d ' ' -f 3-
-			unmountAppImage
+			unmount_appimage
 
 			exit 0;;
 		--appimage-help)
-			echo "$helpstr"
+			echo "$help_str"
 			exit 0;;
 		--appimage-mount)
-			mountAppImage
+			mount_appimage
 			echo "$MNTDIR"
 			read REPLY
-			unmountAppImage
+			unmount_appimage
 			exit 0;;
 		--appimage-offset)
-			getSfsOffset
-			echo "$sfsoffset"
+			get_sfs_offset
+			echo "$sfs_offset"
 			exit 0;;
 		--appimage-portable-home)
 			mkdir "$0.home"
@@ -357,7 +354,7 @@ for i in "$@"; do
 			tac "$TARGET_APPIMAGE" | sed -n '/---END APPIMAGE \[updInfo\]---/,/---BEGIN APPIMAGE \[updInfo\]---/{ /---.* APPIMAGE \[updInfo\]---/d; p }'
 			exit 0;;
 		--appimage-version)
-			[ "$0" != "$TARGET_APPIMAGE" ] && version=$(getVar 'version')
+			[ "$0" != "$TARGET_APPIMAGE" ] && version=$(get_var 'version')
 			echo "$version"
 			exit 0;;
 		--appimage*)
@@ -367,7 +364,7 @@ for i in "$@"; do
 done
 
 # Done setting up, proceed to executing if no arguments are given
-mountAppImage
+mount_appimage
 
 if [ -d "$TARGET_APPIMAGE.home" ]; then
 	echo "setting \$HOME to $TARGET_APPIMAGE.home"
@@ -395,12 +392,12 @@ else
 	else 
 		1>&2 echo "AppRun not found! please report this error to the developers of this application"
 	fi
-	unmountAppImage
+	unmount_appimage
 	exit 1
 fi
 
 # Unmount when finished
-unmountAppImage
+unmount_appimage
 
 # This script MUST end with an exit statement or the shell will continue
 # trying to run binary bullshit as a script (not good)!

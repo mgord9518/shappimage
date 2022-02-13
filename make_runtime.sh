@@ -162,7 +162,7 @@ else
 	cat runtime.sh | tr -d '\t' | sed 's/#.*//' | grep . >> runtime
 fi
 
-[ $COMPRESS_SQUASHFUSE ] && sed -i 's/H -c+$length>/H -c+$length|K -d>/' runtime
+[ $COMPRESS_SQUASHFUSE ] && sed -i 's/head -c +$length >/head -c +$length | gzip -d >/' runtime
 sed -i "s/=cmp/=$COMP/" runtime
 
 # Sizes of all files being packed into the runtime
@@ -181,17 +181,17 @@ ar64_o=$(printf "%06d" $((10#$i386_o + 10#$i386_l)))
 ar32_o=$(printf "%06d" $((10#$ar64_o + 10#$ar64_l)))
 
 # Add in all the sizes and offsets
-sed -i "s/_x64_o/$_x64_o/" runtime
-sed -i "s/_x64_l/$_x64_l/" runtime
+sed -i "s/=_x64_o/=$_x64_o/" runtime
+sed -i "s/=_x64_l/=$_x64_l/" runtime
 
-sed -i "s/i386_o/$i386_o/" runtime
-sed -i "s/i386_l/$i386_l/" runtime
+sed -i "s/=i386_o/=$i386_o/" runtime
+sed -i "s/=i386_l/=$i386_l/" runtime
 
-sed -i "s/ar64_o/$ar64_o/" runtime
-sed -i "s/ar64_l/$ar64_l/" runtime
+sed -i "s/=ar64_o/=$ar64_o/" runtime
+sed -i "s/=ar64_l/=$ar64_l/" runtime
 
-sed -i "s/ar32_o/$ar32_o/" runtime
-sed -i "s/ar32_l/$ar32_l/" runtime
+sed -i "s/=ar32_o/=$ar32_o/" runtime
+sed -i "s/=ar32_l/=$ar32_l/" runtime
 
 runLen=$(cat runtime $binList | wc -c | tr -dc '0-9')
 
@@ -200,7 +200,7 @@ runLen=$(cat runtime $binList | wc -c | tr -dc '0-9')
 # worth looking into compressing the squashfuse binaries as well, as they're
 # cached anyway
 sfsOffset=$(printf "%06d" "$runLen")
-sed -i "s/_sfs_o/$sfsOffset/" runtime
+sed -i "s/=_sfs_o/=$sfsOffset/" runtime
 
 cat runtime $binList > runtime2
 
