@@ -38,7 +38,6 @@
 [ -z $UID  ] && UID=$(id -u &)
 [ -z $TARGET_APPIMAGE ] && TARGET_APPIMAGE="$0"
 shell=$(readlink "/proc/$$/exe" &)
-set -o pipefail
 
 wait
 
@@ -212,7 +211,7 @@ mount_appimage() {
 	fi
 
 	# Set variable for random numbers if not available in running shell
-	[ -z $RANDOM ] && RANDOM=$(tr -dc '0-9a-zA-Z' < /dev/urandom | head -c 8) &
+	[ -z $RANDOM ] && RANDOM=$(tr -dc '0-9a-zA-Z' < /dev/urandom 2> /dev/null | head -c 8) &
 
 	if [ "$use_bashisms" = "false" ]; then
 		run_id="$(basename $TARGET_APPIMAGE | head -c 8)$RANDOM" &
