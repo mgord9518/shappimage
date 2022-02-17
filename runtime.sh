@@ -38,6 +38,7 @@
 [ -z $UID  ] && UID=$(id -u &)
 [ -z $TARGET_APPIMAGE ] && TARGET_APPIMAGE="$0"
 shell=$(readlink "/proc/$$/exe" &)
+set -o pipefail
 
 wait
 
@@ -63,7 +64,7 @@ case "$shell" in
 esac
 
 sfs_offset=_sfs_o
-version=0.1.11
+version=0.1.12
 COMP=cmp
 help_str='AppImage options:
   --appimage-extract          extract content from internal SquashFS image
@@ -349,11 +350,18 @@ for i in "$@"; do
 #		--appimage-signature)
 #			;;
 		--appimage-updateinfo)
-			# L O N G sed one-liner to extract the update information from the
-			# zip file placed at the end of the AppImage, this can be done
-			# because it's one of the few files that doesn't get compressed and
-			# has a special header and footer to make it easily locatable
-			tac "$TARGET_APPIMAGE" | sed -n '/---END APPIMAGE \[update_info\]---/,/---BEGIN APPIMAGE \[update_info\]---/{ /---.* APPIMAGE \[update_info\]---/d; p }'
+			# Prefer `unzip` it showed to be the fastest with my tests
+			if command -v 'unzip'; then
+				unzip -p "$TARGET_APPIMAGE" '.APPIMAGE_RESOURCES/update_info' | head -n 1 | tail -n 1
+			elif command -v 'bsdtar'; then
+				bsdtar -Oxf "$TARGET_APPIMAGE" '.APPIMAGE_RESOURCES/update_info' | head -n 1 | tail -n 1
+			else
+				# L O N G sed one-liner to extract the update information from the
+				# zip file placed at the end of the AppImage, this can be done
+				# because it's one of the few files that doesn't get compressed and
+				# has a special header and footer to make it easily locatable
+				tac "$TARGET_APPIMAGE" | sed -n '/---END APPIMAGE \[update_info\]---/,/---BEGIN APPIMAGE \[update_info\]---/{ /---.* APPIMAGE \[update_info\]---/d; p }'
+			fi
 			exit 0;;
 		--appimage-version)
 			[ "$0" != "$TARGET_APPIMAGE" ] && version=$(get_var 'version')
