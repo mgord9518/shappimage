@@ -43,7 +43,7 @@ wait
 
 if [ $TMPDIR ]; then
 	temp_dir="$TMPDIR"
-elif [ -w $XDG_RUNTIME_DIR ]; then
+elif [ -w "$XDG_RUNTIME_DIR" ]; then
 	temp_dir="$XDG_RUNTIME_DIR"
 else
 	temp_dir="/tmp"
