@@ -275,17 +275,21 @@ extract_squashfuse() {
 	temp_sqfuse="$temp_dir/shImg-sqfuse_$UID-$COMP"
 	# Don't extract it again if it's already there
 	if [ -x "$temp_sqfuse" ]; then
-			"$temp_sqfuse"
+		squashfuse() {
+			"$temp_sqfuse" "$@"
+		}
 		return
 	fi
 
 	# Extract it, mkruntime will modify this adding, a gzip extract into the
 	# pipe if `$NO_COMPRESS_SQUASHFUSE` is unset
-	tail -c +$offset "$0" | head -c +$length > "$temp_dir/shImg-sqfuse_$UID-$COMP" &
+	tail -c +$offset "$0" | head -c +$length > "$temp_sqfuse" &
 	chmod 0700 "$temp_sqfuse" &
 	wait
 
-	alias squashfuse="$temp_sqfuse"
+	squashfuse() {
+		"$temp_sqfuse" "$@"
+	}
 }
 
 get_var() {

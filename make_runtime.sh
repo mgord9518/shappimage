@@ -18,7 +18,7 @@ if [[ "$ARCH" = *'x86_64'* ]]; then
 		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" \
 			-O squashfuse/squashfuse.x86_64
 	fi
-	if [ -z $NO_COMPRESS_SQUASHFUSE ]; then
+	if [ $COMPRESS_SQUASHFUSE ]; then
 		zopfli --i1000 squashfuse/squashfuse.x86_64
 		rm squashfuse/squashfuse.x86_64
 		binList="squashfuse/squashfuse.x86_64.gz"
@@ -31,7 +31,7 @@ if [[ "$ARCH" = *'aarch64'* ]]; then
 		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP.aarch64" \
 			-O squashfuse/squashfuse.aarch64
 	fi
-	if [ -z $NO_COMPRESS_SQUASHFUSE ]; then
+	if [ $COMPRESS_SQUASHFUSE ]; then
 		zopfli --i1000 squashfuse/squashfuse.aarch64
 		rm squashfuse/squashfuse.aarch64
 		binList="$binList squashfuse/squashfuse.aarch64.gz"
@@ -44,7 +44,7 @@ if [[ "$ARCH" = *'armhf'* ]]; then
 		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP.armv7l" \
 			-O squashfuse/squashfuse.armhf
 	fi
-	if [ -z $NO_COMPRESS_SQUASHFUSE ]; then
+	if [ $COMPRESS_SQUASHFUSE ]; then
 		zopfli --i1000 squashfuse/squashfuse.armhf
 		rm squashfuse/squashfuse.armhf
 		binList="$binList squashfuse/squashfuse.armhf.gz"
