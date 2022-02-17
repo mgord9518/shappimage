@@ -63,9 +63,7 @@ case "$shell" in
 esac
 
 sfs_offset=_sfs_o
-version=0.1.9
-#gpgSig= GPG signing NEI
-#gpgPub=
+version=0.1.11
 COMP=cmp
 help_str='AppImage options:
   --appimage-extract          extract content from internal SquashFS image

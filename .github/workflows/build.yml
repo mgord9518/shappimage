@@ -14,34 +14,34 @@ jobs:
       run:  sudo apt install zopfli
 
     - name: Build all architectures (LZ4)
-      run:  ARCH=x86_64-aarch64-armhf ./make_runtime.sh
+      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64-armhf ./make_runtime.sh
 
     - name: Build x86_64 and aarch64 (LZ4)
-      run:  ARCH=x86_64-aarch64 ./make_runtime.sh
+      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64 ./make_runtime.sh
   
     - name: Build x86_64 (LZ4)
-      run:  ARCH=x86_64 ./make_runtime.sh
+      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64 ./make_runtime.sh
   
     - name: Build aarch64 (LZ4)
-      run:  ARCH=aarch64 ./make_runtime.sh
+      run:  COMPRESS_SQUASHFUSE=1 ARCH=aarch64 ./make_runtime.sh
 
     - name: Build armhf (LZ4)
-      run:  ARCH=armhf ./make_runtime.sh
+      run:  COMPRESS_SQUASHFUSE=1 ARCH=armhf ./make_runtime.sh
   
     - name: Build all architectures (ZSTD)
-      run:  rm -r squashfuse; ARCH=x86_64-aarch64-armhf COMP=zstd ./make_runtime.sh
+      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64-armhf COMP=zstd ./make_runtime.sh
 
     - name: Build x86_64 and aarch64 (ZSTD)
-      run:  ARCH=x86_64-aarch64 COMP=zstd ./make_runtime.sh
+      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64 COMP=zstd ./make_runtime.sh
   
     - name: Build x86_64 (ZSTD)
-      run:  ARCH=x86_64 COMP=zstd ./make_runtime.sh
+      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64 COMP=zstd ./make_runtime.sh
   
     - name: Build aarch64 (ZSTD)
-      run:  ARCH=aarch64 COMP=zstd ./make_runtime.sh
+      run:  COMPRESS_SQUASHFUSE=1 ARCH=aarch64 COMP=zstd ./make_runtime.sh
 
     - name: Build armhf (ZSTD)
-      run:  ARCH=armhf COMP=zstd ./make_runtime.sh
+      run:  COMPRESS_SQUASHFUSE=1 ARCH=armhf COMP=zstd ./make_runtime.sh
 
     - name: Upload build
       uses: "marvinpinto/action-automatic-releases@latest"

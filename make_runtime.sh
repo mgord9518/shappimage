@@ -162,6 +162,8 @@ else
 	cat runtime.sh | tr -d '\t' | sed 's/#.*//' | grep . >> runtime
 fi
 
+# Honestly, I can't think of any reason NOT to compress the squashfuse binaries
+# but leaving it as optional anyway
 [ $COMPRESS_SQUASHFUSE ] && sed -i 's/head -c +$length >/head -c +$length | gzip -d >/' runtime
 sed -i "s/=cmp/=$COMP/" runtime
 
