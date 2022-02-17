@@ -43,10 +43,10 @@ wait
 
 if [ $TMPDIR ]; then
 	temp_dir="$TMPDIR"
-elif [ $XDG_RUNTIME_DIR ]; then
+elif [ -w $XDG_RUNTIME_DIR ]; then
 	temp_dir="$XDG_RUNTIME_DIR"
 else
-	temp_dir="/run/user/$UID"
+	temp_dir="/tmp"
 fi
 if [ "$ARCH" = armv7l ]; then
 	ARCH=armhf
