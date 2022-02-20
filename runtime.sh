@@ -350,10 +350,10 @@ for i in "$@"; do
 #			;;
 		--appimage-updateinfo)
 			# Prefer `unzip` it showed to be the fastest with my tests
-			if command -v 'unzip'; then
-				unzip -p "$TARGET_APPIMAGE" '.APPIMAGE_RESOURCES/update_info' | head -n 1 | tail -n 1
-			elif command -v 'bsdtar'; then
-				bsdtar -Oxf "$TARGET_APPIMAGE" '.APPIMAGE_RESOURCES/update_info' | head -n 1 | tail -n 1
+			if command -v 'unzip' > /dev/null; then
+				unzip -p "$TARGET_APPIMAGE" '.APPIMAGE_RESOURCES/update_info' | head -n 2 | tail -n 1
+			elif command -v 'bsdtar' > /dev/null; then
+				bsdtar -Oxf "$TARGET_APPIMAGE" '.APPIMAGE_RESOURCES/update_info' | head -n 2 | tail -n 1
 			else
 				# L O N G sed one-liner to extract the update information from the
 				# zip file placed at the end of the AppImage, this can be done
