@@ -211,7 +211,7 @@ mount_appimage() {
 	fi
 
 	# Set variable for random numbers if not available in running shell
-	[ -z $RANDOM ] && RANDOM=$(tr -dc '0-9a-zA-Z' < /dev/urandom 2> /dev/null | head -c 8) &
+	[ -z $RANDOM ] && RANDOM=$(tr -dc '0-9a-zA-Z' < /dev/urandom 2> /dev/null | head -c 8)
 
 	if [ "$use_bashisms" = "false" ]; then
 		run_id="$(basename $TARGET_APPIMAGE | head -c 8)$RANDOM" &
@@ -257,13 +257,14 @@ mount_appimage() {
 
 # Unmount prefering `fusermount` which is on practically all common desktop Linux
 # distos, fall back on `umount` just in case
+# Lazy unmount is to fix "resource busy" problem when running on Ubuntu 18,04
 unmount_appimage() {
 	[ -d "$TARGET_APPIMAGE" ] && return
 
 	if command -v 'fusermount' > /dev/null; then
-		fusermount -u "$MNTDIR" &
+		fusermount -uz "$MNTDIR" &
 	else
-		umount "$MNTDIR" &
+		umount -l "$MNTDIR" &
 	fi
 
 	# Clean up all empty directories
