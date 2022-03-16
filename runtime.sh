@@ -214,14 +214,12 @@ mount_appimage() {
 	[ -z $RANDOM ] && RANDOM=$(tr -dc '0-9a-zA-Z' < /dev/urandom 2> /dev/null | head -c 8)
 
 	if [ "$use_bashisms" = "false" ]; then
-		run_id="$(basename $TARGET_APPIMAGE | head -c 8)$RANDOM" &
+		run_id="$(basename $TARGET_APPIMAGE | head -c 8)$RANDOM"
 	else
 		run_id="$(basename $TARGET_APPIMAGE)"
 		run_id="${run_id:0:8}$RANDOM"
 	fi
 
-	wait
-	
 	[ -z $MNTDIR ] && MNTDIR="$temp_dir/.mount_$run_id"
 
 	# Ensure that the AppImage exits gracefully and unmounts before the script
