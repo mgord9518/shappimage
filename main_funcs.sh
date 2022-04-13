@@ -1,90 +1,3 @@
-#!/bin/sh
-#.shImg.#
-
-# Copyright © 2021-2022 Mathew Gordon <github.com/mgord9518>
-
-# This is a proof-of-concept of a fat AppImage runtime using shell scripting
-# The base functionality is mostly modeled directly off of AppImage type 2's
-# `runtime.c` but there are some differences.
-#
-# * Addition of $MNTDIR, which allows setting the location of where to mount
-#   the SquashFS archive
-# * Mounts into `/run` instead of `/tmp`, unless `$TMPDIR` is set. I can't
-#   imagine this would change functionality hardly at all, but I guess it's
-#   worth mentioning
-# * Can support multiple architectures with one AppImage, may be good for small
-#   programs
-# * Slower launch time (obviously, it's shell vs C). The launch difference is
-#   negligible for GUI apps, but may make a significant difference when running
-#   a CLI program many times. The launch time impact can also be remedied by
-#   LZ4 compression (default) at the cost of larger bundles. IMO, it is a good
-#   balance between launch time and compression. This script also runs faster
-#   with dash compared to bash or zsh
-# * There are currently no tools to properly build AppImages with this runtime
-#   besides `mkruntime`, which is fully intended as a temporary builder for
-#   testing the script development
-# * Most AppImage integration software does not recognize the format as it
-#   isn't standard and uses the sfs_offset variable as the offset instead of
-#   the ELF header
-# * Desktop integration information is stored in a zip file placed at the end
-#   of the AppImage. This makes it trivial to extract and desktop integration
-#   software won't even require a SquashFS driver. The update information can
-#   even be extracted without zip! See the code under `--appimage-updateinfo`
-#   flag to see how
-
-# Run these startup commands concurrently to make them faster
-[ -z $ARCH ] && ARCH=$(uname -m &)
-# TODO: Add more ARMHF-compat arches
-[ -z $UID  ] && UID=$(id -u &)
-[ -z $TARGET_APPIMAGE ] && TARGET_APPIMAGE="$0"
-shell=$(readlink "/proc/$$/exe" &)
-
-wait
-
-if [ $TMPDIR ]; then
-	temp_dir="$TMPDIR"
-elif [ -w "$XDG_RUNTIME_DIR" ]; then
-	temp_dir="$XDG_RUNTIME_DIR"
-else
-	temp_dir="/tmp"
-fi
-if [ "$ARCH" = armv7l ]; then
-	ARCH=armhf
-fi
-case "$shell" in
-	*bash)
-		use_bashisms=true;;
-	*osh)
-		use_bashisms=true;;
-	*zsh)
-		use_bashisms=true;;
-	*)
-		use_bashisms=false;;
-esac
-
-sfs_offset=_sfs_o
-version=0.1.12
-COMP=cmp
-help_str='AppImage options:
-  --appimage-extract          extract content from internal SquashFS image
-  --appimage-help             print this help
-  --appimage-mount            mount internal SquashFS to $MNTDIR, unmounting
-                                after [RETURN] or [CTRL]+C is pressed
-  --appimage-offset           print byte offset of internal SquashFS image
-  --appimage-portable-home    create portable home directory to use as $HOME
-  --appimage-portable-config  create portable config directory to use as 
-                                $XDG_CONFIG_HOME
-  --appimage-signature        print digital signature embedded in AppImage
-  --appimage-updateinfo       print update info embedded in AppImage
-  --appimage-version          print current version of shappimage runtime
- 
-enviornment variables:
-  TMPDIR  the temporary directory for the AppImage
-  MNTDIR  the mounting directory for the internal SquashFS image
- 
-unofficial AppImage runtime implemented in shell and squashfuse
-'
-
 # Calculate ELF size in pure shell using `shnum * shentsize + shoff`
 # Most of this code is just to find their values
 get_sfs_offset() {
@@ -191,18 +104,22 @@ mount_appimage() {
 	fi
 
 	case "$ARCH" in
-		x86_64)
-			offset=_x64_o
-			length=_x64_l;;
-		i?86)
-			offset=i386_o
-			length=i386_l;;
-		aarch64)
-			offset=ar64_o
-			length=ar64_l;;
-		armhf)
-			offset=ar32_o
-			length=ar32_l;;
+	x86_64)
+		offset=_x64_o_
+		length=_x64_l_
+		;;
+	i?86)
+		offset=i386_o_
+		length=i386_l_
+		;;
+	aarch64)
+		offset=ar64_o_
+		length=ar64_l_
+		;;
+	armhf)
+		offset=ar32_o_
+		length=ar32_l_
+		;;
 	esac
 
 	if [ $length -eq 0 ]; then
@@ -224,7 +141,7 @@ mount_appimage() {
 
 	# Ensure that the AppImage exits gracefully and unmounts before the script
 	# exits
-	trap 'unmount_appimage && exit 1' INT
+	trap 'unmount_appimage 1' INT
 
 	# Create the temporary and mounting directories if they don't exist
 	if [ ! -d "$temp_dir" ] && [ -w "$temp_dir/.." ]; then
@@ -241,20 +158,18 @@ mount_appimage() {
 	fi
 
 	get_sfs_offset
-
-	# If the user doesn't have squashfuse installed, extract the internal one
-	command -v 'squashfuse' > /dev/null || extract_squashfuse
+	extract_exe
 
 	# Attempt to mount and thow an error if unsuccessful
-	squashfuse -o offset="$sfs_offset" "$TARGET_APPIMAGE" "$MNTDIR" 2> /dev/null
+		mnt_cmd "$TARGET_APPIMAGE" "$MNTDIR" $sfs_offset
 	if [ $? -ne 0 ]; then
 		1>&2 echo "failed to mount SquashFS image! bundle may be corrupted :("
 		exit 1
 	fi
 }
 
-# Unmount prefering `fusermount` which is on practically all common desktop Linux
-# distos, fall back on `umount` just in case
+# Unmount and exit, prefering `fusermount` which is on practically all common 
+# desktop Linux distos, fall back on `umount` just in case
 # Lazy unmount is to fix "resource busy" problem when running on Ubuntu 18,04
 unmount_appimage() {
 	[ -d "$TARGET_APPIMAGE" ] && return
@@ -267,28 +182,37 @@ unmount_appimage() {
 
 	# Clean up all empty directories
 	rmdir "$temp_dir/.mount"* 2> /dev/null &
+
+	exit $1
 }
 
-# Find the location of the internal squashfuse binary based on system arch
-extract_squashfuse() {
-	temp_sqfuse="$temp_dir/shImg-sqfuse_$UID-$COMP"
-	# Don't extract it again if it's already there
-	if [ -x "$temp_sqfuse" ]; then
-		squashfuse() {
-			"$temp_sqfuse" "$@"
+# Find the location of the internal binary (may be either squashfuse or DwarFS)
+# based on system arch
+extract_exe() {
+	temp_exe="$temp_dir/shImg-${img_type}_$UID-$COMP"
+
+	if [ "$img_type" = 'squashfs' ]; then
+		command -v 'squashfuse' > /dev/null && temp_exe=$(command -v 'squashfuse')
+		mnt_cmd() {
+			"$temp_exe" "$1" "$2" -o offset=$3 2> /dev/null
 		}
+	elif [ "$img_type" = 'dwarfs' ]; then
+		command -v 'dwarfs' > /dev/null && temp_exe=$(command -v 'dwarfs')
+		mnt_cmd() {
+			"$temp_exe" "$1" "$2" -o offset=$3 2> /dev/null
+		}
+	fi
+
+	# Don't extract it again if it's already there
+	if [ -x "$temp_exe" ]; then
 		return
 	fi
 
 	# Extract it, mkruntime will modify this adding, a gzip extract into the
 	# pipe if `$NO_COMPRESS_SQUASHFUSE` is unset
-	tail -c +$offset "$0" | head -c +$length > "$temp_sqfuse" &
-	chmod 0700 "$temp_sqfuse" &
+	tail -c +$offset "$0" | head -c +$length > "$temp_exe" &
+	chmod 0700 "$temp_exe" &
 	wait
-
-	squashfuse() {
-		"$temp_sqfuse" "$@"
-	}
 }
 
 get_var() {
@@ -313,9 +237,8 @@ for i in "$@"; do
 
 			mount_appimage
 			cp -rv "$MNTDIR/"* "$MNTDIR/".* "$TARGET_APPIMAGE.appdir" | cut -d ' ' -f 3-
-			unmount_appimage
-
-			exit 0;;
+			unmount_appimage 0
+			;;
 		--appimage-help)
 			echo "$help_str"
 			exit 0;;
@@ -323,12 +246,13 @@ for i in "$@"; do
 			mount_appimage
 			echo "$MNTDIR"
 			read REPLY
-			unmount_appimage
-			exit 0;;
+			unmount_appimage 0
+			;;
 		--appimage-offset)
 			get_sfs_offset
 			echo "$sfs_offset"
-			exit 0;;
+			exit 0
+			;;
 		--appimage-portable-home)
 			mkdir "$0.home"
 			if [ $? -ne 0 ]; then
@@ -336,7 +260,8 @@ for i in "$@"; do
 				exit 1
 			fi 
 			echo "Created portable home at $0.home"
-			exit 0;;
+			exit 0
+			;;
 		--appimage-portable-config)
 			mkdir "$0.config"
 			if [ $? -ne 0 ]; then
@@ -344,7 +269,8 @@ for i in "$@"; do
 				exit 1
 			fi
 			echo "created portable config at $0.config"
-			exit 0;;
+			exit 0
+			;;
 #		--appimage-signature)
 #			;;
 		--appimage-updateinfo)
@@ -360,14 +286,17 @@ for i in "$@"; do
 				# has a special header and footer to make it easily locatable
 				tac "$TARGET_APPIMAGE" | sed -n '/---END APPIMAGE \[update_info\]---/,/---BEGIN APPIMAGE \[update_info\]---/{ /---.* APPIMAGE \[update_info\]---/d; p }'
 			fi
-			exit 0;;
+			exit 0
+			;;
 		--appimage-version)
 			[ "$0" != "$TARGET_APPIMAGE" ] && version=$(get_var 'version')
 			echo "$version"
-			exit 0;;
+			exit 0
+			;;
 		--appimage*)
 			1>&2 echo "$i is not implemented in version $version of shappimage"
-			exit 1;;
+			exit 1
+			;;
 	esac
 done
 
@@ -400,13 +329,8 @@ else
 	else 
 		1>&2 echo "AppRun not found! please report this error to the developers of this application"
 	fi
-	unmount_appimage
-	exit 1
+	unmount_appimage 1
 fi
 
 # Unmount when finished
-unmount_appimage
-
-# This script MUST end with an exit statement or the shell will continue
-# trying to run binary bullshit as a script (not good)!
-exit 0
+unmount_appimage 0

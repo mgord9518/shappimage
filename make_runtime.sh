@@ -8,6 +8,7 @@
 # TODO: Allow multiple compression algorithms in building
 [ -z $ARCH ] && ARCH='x86_64-aarch64-armhf'
 [ -z $COMP ] && COMP='lz4'
+[ -z $img_type ] && img_type='squashfuse'
 
 [ ! -d 'squashfuse' ] && mkdir squashfuse
 
@@ -15,8 +16,15 @@
 # exist
 if [[ "$ARCH" = *'x86_64'* ]]; then
 	if [ ! -f 'squashfuse/squashfuse.x86_64'* ]; then
-		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" \
-			-O squashfuse/squashfuse.x86_64
+		if [ $img_type = dwarfs ]; then
+			wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" | \
+				-O - | \
+				tar -xOJ 'dwarfs-0.5.6-Linux/sbin/dwarfs' --strip=2 > squashfuse/squashfuse.x86_64
+		else
+			wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" \
+				-O squashfuse/squashfuse.x86_64
+		fi
+dd
 	fi
 	if [ $COMPRESS_SQUASHFUSE ]; then
 		zopfli --i1000 squashfuse/squashfuse.x86_64
@@ -65,8 +73,8 @@ echo '#!/bin/sh
 # project
 # this has really gotten out of hand
 if [ $COMPRESS_SCRIPT ]; then
-perl bash_obfus.pl -i runtime.sh -o runtime.fus -V A
-echo 'alias A=alias
+	perl bash_obfus.pl -i runtime.sh -o runtime.fus -V A
+	echo 'alias A=alias
 A B=else
 A C=cut
 A D="sed -e"
@@ -162,50 +170,54 @@ else
 	cat runtime.sh | tr -d '\t' | sed 's/#.*//' | grep . >> runtime
 fi
 
+cat header.sh main_funcs.sh > runtime
+
 # Honestly, I can't think of any reason NOT to compress the squashfuse binaries
 # but leaving it as optional anyway
 [ $COMPRESS_SQUASHFUSE ] && sed -i 's/head -c +$length >/head -c +$length | gzip -d >/' runtime
 sed -i "s/=cmp/=$COMP/" runtime
+sed -i "s/=_IMG_TYPE_/=$img_type/" runtime
 
 # Sizes of all files being packed into the runtime
-_x64_l=$(printf "%06d" `wc -c squashfuse/squashfuse.x86_64* | cut -d ' ' -f 1`)
-i386_l=$(printf "%06d" `wc -c squashfuse/squashfuse.i386* | cut -d ' ' -f 1`)
-ar64_l=$(printf "%06d" `wc -c squashfuse/squashfuse.aarch64* | cut -d ' ' -f 1`)
-ar32_l=$(printf "%06d" `wc -c squashfuse/squashfuse.armhf* | cut -d ' ' -f 1`)
+_x64_l=$(printf "%07d" `wc -c squashfuse/squashfuse.x86_64* | cut -d ' ' -f 1`)
+i386_l=$(printf "%07d" `wc -c squashfuse/squashfuse.i386* | cut -d ' ' -f 1`)
+ar64_l=$(printf "%07d" `wc -c squashfuse/squashfuse.aarch64* | cut -d ' ' -f 1`)
+ar32_l=$(printf "%07d" `wc -c squashfuse/squashfuse.armhf* | cut -d ' ' -f 1`)
 
 # Offsets of squashfuse binaries by arch
 # These are used when the runtime is executed to know where in the file to
 # extract the appropriate binary
 _x64_o=$(cat runtime | wc -c | tr -dc '0-9')
-_x64_o=$(printf "%06d" $((10#$_x64_o + 1)))
-i386_o=$(printf "%06d" $((10#$_x64_o + 10#$_x64_l)))
-ar64_o=$(printf "%06d" $((10#$i386_o + 10#$i386_l)))
-ar32_o=$(printf "%06d" $((10#$ar64_o + 10#$ar64_l)))
+_x64_o=$(printf "%07d" $((10#$_x64_o + 1)))
+i386_o=$(printf "%07d" $((10#$_x64_o + 10#$_x64_l)))
+ar64_o=$(printf "%07d" $((10#$i386_o + 10#$i386_l)))
+ar32_o=$(printf "%07d" $((10#$ar64_o + 10#$ar64_l)))
 
 # Add in all the sizes and offsets
-sed -i "s/=_x64_o/=$_x64_o/" runtime
-sed -i "s/=_x64_l/=$_x64_l/" runtime
+sed -i "s/=_x64_o_/=$_x64_o/" runtime
+sed -i "s/=_x64_l_/=$_x64_l/" runtime
 
-sed -i "s/=i386_o/=$i386_o/" runtime
-sed -i "s/=i386_l/=$i386_l/" runtime
+sed -i "s/=i386_o_/=$i386_o/" runtime
+sed -i "s/=i386_l_/=$i386_l/" runtime
 
-sed -i "s/=ar64_o/=$ar64_o/" runtime
-sed -i "s/=ar64_l/=$ar64_l/" runtime
+sed -i "s/=ar64_o_/=$ar64_o/" runtime
+sed -i "s/=ar64_l_/=$ar64_l/" runtime
 
-sed -i "s/=ar32_o/=$ar32_o/" runtime
-sed -i "s/=ar32_l/=$ar32_l/" runtime
+sed -i "s/=ar32_o_/=$ar32_o/" runtime
+sed -i "s/=ar32_l_/=$ar32_l/" runtime
 
 runLen=$(cat runtime $binList | wc -c | tr -dc '0-9')
 
-# 6 digits long is enough for a 1MB runtime, which should be more than enough
-# besides if everything is statically linked. If that is the case, it may be
-# worth looking into compressing the squashfuse binaries as well, as they're
-# cached anyway
-sfsOffset=$(printf "%06d" "$runLen")
-sed -i "s/=_sfs_o/=$sfsOffset/" runtime
+# Had to expand to 7 digits because of DwarFS's large size
+sfsOffset=$(printf "%07d" "$runLen")
+sed -i "s/=_sfs_o_/=$sfsOffset/" runtime
 
 cat runtime $binList > runtime2
 
 #rm runtime
 #rm -r squashfuse
-mv runtime2 "runtime-$COMP-$ARCH"
+if [ ! $img_type = dwarfs ]; then
+	mv runtime2 "runtime-$COMP-$ARCH"
+else
+	mv runtime2 "rumtime_dwarf-$ARCH"
+fi
