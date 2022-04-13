@@ -218,6 +218,6 @@ cat runtime $binList > runtime2
 if [ ! $img_type = dwarfs ]; then
 	mv runtime2 "runtime-$COMP-$ARCH"
 else
-	mv runtime2 "rumtime_dwarf-$ARCH"
+	mv runtime2 "runtime_dwarf-$ARCH"
 	rm squashfuse/squashfuse.x86_64.gz
 fi
