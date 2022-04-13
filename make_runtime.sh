@@ -17,8 +17,7 @@
 if [[ "$ARCH" = *'x86_64'* ]]; then
 	if [ ! -f 'squashfuse/squashfuse.x86_64'* ]; then
 		if [ $img_type = dwarfs ]; then
-			wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" | \
-				-O - | \
+			wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" -O - | \
 				tar -xOJ 'dwarfs-0.5.6-Linux/sbin/dwarfs' --strip=2 > squashfuse/squashfuse.x86_64
 		else
 			wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" \
