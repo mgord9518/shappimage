@@ -14,7 +14,7 @@ jobs:
       run:  sudo apt install zopfli
 
     - name: Build x86_64 (all compression, DwarFS)
-      run:  COMPRESS_SQUASHFUSE=1 img_type=dwarfs ARCH=x86_64 ./make_runtime.sh; rm squashfuse/squashfuse.x86_64
+      run:  COMPRESS_SQUASHFUSE=1 img_type=dwarfs ARCH=x86_64 ./make_runtime.sh
 
     - name: Build all architectures (LZ4)
       run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64-armhf ./make_runtime.sh

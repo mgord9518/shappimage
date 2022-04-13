@@ -26,7 +26,7 @@ if [[ "$ARCH" = *'x86_64'* ]]; then
 dd
 	fi
 	if [ $COMPRESS_SQUASHFUSE ]; then
-		zopfli --i1000 squashfuse/squashfuse.x86_64
+		zopfli --i100 squashfuse/squashfuse.x86_64
 		rm squashfuse/squashfuse.x86_64
 		binList="squashfuse/squashfuse.x86_64.gz"
 	else
@@ -219,4 +219,5 @@ if [ ! $img_type = dwarfs ]; then
 	mv runtime2 "runtime-$COMP-$ARCH"
 else
 	mv runtime2 "rumtime_dwarf-$ARCH"
+	rm squashfuse/squashfuse.x86_64.gz
 fi
