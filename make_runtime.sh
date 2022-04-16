@@ -8,7 +8,7 @@
 # TODO: Allow multiple compression algorithms in building
 [ -z $ARCH ] && ARCH='x86_64-aarch64-armhf'
 [ -z $COMP ] && COMP='lz4'
-[ -z $img_type ] && img_type='squashfuse'
+[ -z $img_type ] && img_type='squashfs'
 
 [ ! -d 'squashfuse' ] && mkdir squashfuse
 
