@@ -35,7 +35,7 @@ dd
 fi
 if [[ "$ARCH" = *'aarch64'* ]]; then
 	if [ ! -f 'squashfuse/squashfuse.aarch64'* ]; then
-		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP$STATIC.aarch64" \
+		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP$STATIC.aarch64" \
 			-O squashfuse/squashfuse.aarch64
 	fi
 	if [ $COMPRESS_SQUASHFUSE ]; then
