@@ -8,7 +8,7 @@
 # TODO: Allow multiple compression algorithms in building
 [ -z $ARCH ] && ARCH='x86_64-aarch64-armhf'
 [ -z $COMP ] && COMP='lz4'
-[ -z $img_type ] && img_type='squashfuse'
+[ -z $img_type ] && img_type='squashfs'
 
 [ ! -d 'squashfuse' ] && mkdir squashfuse
 
@@ -20,7 +20,7 @@ if [[ "$ARCH" = *'x86_64'* ]]; then
 			wget "https://github.com/mhx/dwarfs/releases/download/v0.5.6/dwarfs-0.5.6-Linux.tar.xz" -O - | \
 				tar -xOJ 'dwarfs-0.5.6-Linux/sbin/dwarfs' --strip=2 > squashfuse/squashfuse.x86_64
 		else
-			wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP.x86_64" \
+			wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP$STATIC.x86_64" \
 				-O squashfuse/squashfuse.x86_64
 		fi
 dd
@@ -35,7 +35,7 @@ dd
 fi
 if [[ "$ARCH" = *'aarch64'* ]]; then
 	if [ ! -f 'squashfuse/squashfuse.aarch64'* ]; then
-		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP.aarch64" \
+		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP$STATIC.aarch64" \
 			-O squashfuse/squashfuse.aarch64
 	fi
 	if [ $COMPRESS_SQUASHFUSE ]; then
@@ -48,7 +48,7 @@ if [[ "$ARCH" = *'aarch64'* ]]; then
 fi
 if [[ "$ARCH" = *'armhf'* ]]; then
 	if [ ! -f 'squashfuse/squashfuse.armhf'* ]; then
-		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP.armv7l" \
+		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP$STATIC.armv7l" \
 			-O squashfuse/squashfuse.armhf
 	fi
 	if [ $COMPRESS_SQUASHFUSE ]; then
@@ -216,8 +216,8 @@ cat runtime $binList > runtime2
 #rm runtime
 #rm -r squashfuse
 if [ ! $img_type = dwarfs ]; then
-	mv runtime2 "runtime-$COMP-$ARCH"
+	mv runtime2 "runtime-$COMP$STATIC-$ARCH"
 else
-	mv runtime2 "runtime_dwarf-$ARCH"
+	mv runtime2 "runtime_dwarf-static-$ARCH"
 	rm squashfuse/squashfuse.x86_64.gz
 fi
