@@ -236,7 +236,7 @@ for i in "$@"; do
 			fi
 
 			mount_appimage
-			cp -rv "$MNTDIR/"* "$MNTDIR/".* "$TARGET_APPIMAGE.appdir" | cut -d ' ' -f 3-
+			cp -rv "$MNTDIR/." "$TARGET_APPIMAGE.appdir" | cut -d ' ' -f 3-
 			unmount_appimage 0
 			;;
 		--appimage-help)
