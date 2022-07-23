@@ -169,13 +169,16 @@ else
 	cat runtime.sh | tr -d '\t' | sed 's/#.*//' | grep . >> runtime
 fi
 
-cat header.sh main_funcs.sh > runtime
+cp runtime.sh runtime
+
+arch=$(echo "$ARCH" | tr '-' ';')
 
 # Honestly, I can't think of any reason NOT to compress the squashfuse binaries
 # but leaving it as optional anyway
 [ $COMPRESS_SQUASHFUSE ] && sed -i 's/head -c +$length >/head -c +$length | gzip -d >/' runtime
 sed -i "s/=cmp/=$COMP/" runtime
 sed -i "s/=_IMG_TYPE_/=$img_type/" runtime
+sed -i "s/=_ARCH_/='$arch'/" runtime
 
 # Sizes of all files being packed into the runtime
 _x64_l=$(printf "%07d" `wc -c squashfuse/squashfuse.x86_64* | cut -d ' ' -f 1`)
