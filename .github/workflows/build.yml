@@ -66,27 +66,32 @@ jobs:
     - name: Build x86_64 and aarch64 (LZ4)
       run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64 STATIC=-static ./make_runtime.sh
 
-    - name: Build all architectures static (LZ4)
-      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64-armhf STATIC=-static ./make_runtime.sh
+#    - name: Build all architectures static (LZ4)
+#      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64-armhf STATIC=-static ./make_runtime.sh
 
 
   
 
+    - name: Build x86_64 (ZSTD)
+      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=x86_64 COMP=zstd STATIC=-static ./make_runtime.sh
   
-    - name: Build all architectures (ZSTD)
-      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64-armhf COMP=zstd STATIC=-static ./make_runtime.sh
+    - name: Build aarch64 (ZSTD)
+      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=aarch64 COMP=zstd STATIC=-static ./make_runtime.sh
 
     - name: Build x86_64 and aarch64 (ZSTD)
       run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64 COMP=zstd STATIC=-static ./make_runtime.sh
-  
-    - name: Build x86_64 (ZSTD)
-      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64 COMP=zstd STATIC=-static ./make_runtime.sh
-  
-    - name: Build aarch64 (ZSTD)
-      run:  COMPRESS_SQUASHFUSE=1 ARCH=aarch64 COMP=zstd STATIC=-static ./make_runtime.sh
 
-    - name: Build armhf (ZSTD)
-      run:  COMPRESS_SQUASHFUSE=1 ARCH=armhf COMP=zstd STATIC=-static ./make_runtime.sh
+#    - name: Build all architectures (ZSTD)
+#      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64-armhf COMP=zstd STATIC=-static ./make_runtime.sh
+
+  
+
+  
+#    - name: Build aarch64 (ZSTD)
+#      run:  COMPRESS_SQUASHFUSE=1 ARCH=aarch64 COMP=zstd STATIC=-static ./make_runtime.sh
+
+#    - name: Build armhf (ZSTD)
+#      run:  COMPRESS_SQUASHFUSE=1 ARCH=armhf COMP=zstd STATIC=-static ./make_runtime.sh
 
     - name: Upload build
       uses: "marvinpinto/action-automatic-releases@latest"
