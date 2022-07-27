@@ -10,26 +10,24 @@ The idea just popped into my head as a way to make cross-architecture AppImages
 so I decided to make it and see how feasible it is
 
 ## How does it work?
-Overall it's pretty simple, the script checks if the user has squashfuse
+Overall it's pretty simple, the script checks if the user has squashfuse/dwarfs
 binaries on their system (prefers this), if not it will extract a portable
-squashfuse binary to `$XDG_RUNTIME_DIR`. It then uses squashfuse to mount the
-attached SquashFS image at the specified offset, running AppRun then unmount
-and clean up once finished. See [File structure](#file-structure) for more info
+binary to `$XDG_RUNTIME_DIR`. It then uses the binary to mount the attached
+filesystem image at the specified offset, runs AppRun then unmounts and cleans
+up once finished. See [File structure](#file-structure) for more info
 
 ## How different is it from standard AppImage?
 
-A big one is that the normal AppImage runtime is statically linked, while
-shappimage dynamically links some libs. I decided to do this because an
-overwhelming majority of AppImages already require glibc and the runtime has to
-contain a copy of squashfuse for every supported archetecture. Statically
-compiling every compression lib and libc would very quickly blow up the runtime
-size, but being that they're compressed by default now, that may not be a huge
-issue. Both have their upsides and downsides. Static linking ensures maximum
-portability but also can make the runtime quite large. Dynamic linking (core
-libraries) gives a smaller runtime, but will be unable to run on very minimal
-systems such as Alpine or any non-GLibC distros, which are commonly used for
-Docker images. An interesting solution may be to autodetect if the app requires
-GLibc, and use the dynamic runtime if so.
+Besides not being an ELF file, shImg has both semi-static and fully static
+runtimes. This is to allow a smaller runtime size assuming the user has GLibC on
+their system (most AppImages require it anyway). If an AppImage does not require
+GLibC to run, it should use the fully static runtime, which can also run on
+distros such as Alpine and NixOS. I imagine a tool made to build shImgs should
+try to detect whether the application requires GLibC to run and use the
+appropriate runtime. Some current issues shImg has that the standard AppImage
+runtime doesn't are: shImg requires fuse3 and can only use `--appimage-extract`
+on systems with a working FUSE driver. This may make it harder to use on minimal
+or older systems.
 
 The shImg runtime also has a longer initialization time compared to standard the
 standard runtime. I've tried to optimize it a bit, but it still takes about
@@ -51,14 +49,14 @@ launch speed.
 
 ## File structure
 
-The shell script (with the help of some attached squashfuse binaries) do the
-same job as the standard AppImage type 2 runtime, simply trying to find the
+The shell script (with the help of some attached fuse binaries) do the same
+job as the standard AppImage type 2 runtime, simply trying to find the image
 offset as fast as possible, mount it and run the contained application inside
 the SquashFS bundle. The (possibly multiarch) payload is appended, which
 contains the app itself.
 
 Finally, a zip archive is slapped on the end to serve as desktop integration
-information. zip was chosen over other formats for its ability to be placed at
+information. Zip was chosen over other formats for its ability to be placed at
 an arbitrary offset and still be accessed, this allows desktop integration
 software to simply open the AppImage as if it were a normal zip file, no need
 to worry about what's going on up front.
@@ -78,7 +76,7 @@ to worry about what's going on up front.
 ║                               ║   │
 ║                               ║   │
 ║                               ║   │
-║        SquashFS payload       ║   │ ╭───────────────────╮
+║     SquashFS/DwarFS payload   ║   │ ╭───────────────────╮
 ║                               ║   ├─┤ meat and potatoes │
 ║     (LZ4_HC, ZSTD or GZIP)    ║   │ ╰───────────────────╯
 ║                               ║   │
@@ -127,7 +125,7 @@ also be added if desired.
 
 ## Building
 
-To build the main shImg, first assemble an AppDir, the construction should be
+To build the main shImg, first assemble an AppDir, the construction will be
 nearly identical to standard AppImage, but in addition you may supply multiple
 `AppRun` files to different architectures (eg: `AppRun` as the default,
 presumably x86_64, then another called `AppRun.aarch64`, which will be called
