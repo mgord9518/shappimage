@@ -291,7 +291,7 @@ extract_exe() {
 	elif [ "$img_type" = 'dwarfs' ]; then
 		command -v 'dwarfs' > /dev/null && temp_exe=$(command -v 'dwarfs')
 		mnt_cmd() {
-			"$temp_exe" "$1" "$2" -o offset=$3
+			"$temp_exe" "$1" "$2" -o offset=$3 -o debuglevel=error
 		}
 	fi
 
