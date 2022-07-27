@@ -255,7 +255,7 @@ mount_appimage() {
 	# Attempt to mount and thow an error if unsuccessful
 		mnt_cmd "$TARGET_APPIMAGE" "$MNTDIR" $sfs_offset
 	if [ $? -ne 0 ]; then
-		1>&2 echo "failed to mount SquashFS image! bundle may be corrupted :("
+		1>&2 echo "failed to mount bundle image! see error message above"
 		exit 1
 	fi
 }
@@ -286,12 +286,12 @@ extract_exe() {
 	if [ "$img_type" = 'squashfs' ]; then
 		command -v 'squashfuse' > /dev/null && temp_exe=$(command -v 'squashfuse')
 		mnt_cmd() {
-			"$temp_exe" "$1" "$2" -o offset=$3 2> /dev/null
+			"$temp_exe" "$1" "$2" -o offset=$3
 		}
 	elif [ "$img_type" = 'dwarfs' ]; then
 		command -v 'dwarfs' > /dev/null && temp_exe=$(command -v 'dwarfs')
 		mnt_cmd() {
-			"$temp_exe" "$1" "$2" -o offset=$3 2> /dev/null
+			"$temp_exe" "$1" "$2" -o offset=$3
 		}
 	fi
 
