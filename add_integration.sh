@@ -2,6 +2,11 @@
 
 # Script to add desktop integration to a partially assembled shImg
 
+clean_exit() {
+	rm -r '.APPIMAGE_RESOURCES' '.APPIMAGE_RESOURCES.zip' 2> /dev/null
+	exit "$1"
+}
+
 # Make sure required tools are present
 [ ! $(command -v zip) ]             && echo 'infozip is required to add and use shImg desktop integration!' && clean_exit 1
 [ ! $(command -v rsvg-convert) ]    && echo 'rsvg-convert is required to convert icon!'                     && clean_exit 1
@@ -11,11 +16,6 @@ if [ $GITHUB_ACTIONS ]; then
 	wget -O - 'https://github.com/shssoichiro/oxipng/releases/download/v5.0.1/oxipng-5.0.1-x86_64-unknown-linux-musl.tar.gz' \
 		| tar --strip-components 1 -xzvf -
 fi
-
-clean_exit() {
-	rm -r '.APPIMAGE_RESOURCES' '.APPIMAGE_RESOURCES.zip' 2> /dev/null
-	exit "$1"
-}
 
 # Allow running as root without squashfuse for Docker/GH actions purposes,
 # but don't suggest it because that's stupid
