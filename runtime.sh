@@ -21,29 +21,36 @@
 #   balance between launch time and compression. This script also runs faster
 #   with dash compared to bash or zsh
 # * There are currently no tools to properly build AppImages with this runtime
-#   besides `mkruntime`, which is fully intended as a temporary builder for
-#   testing the script development
+#   besides `make_runtime.sh`, which is fully intended as a temporary builder
+#   for testing the script development
 # * Most AppImage integration software does not recognize the format as it
 #   isn't standard and uses the sfs_offset variable as the offset instead of
-#   the ELF header
+#   the ELF header. aisap <github.com/mgord9518/aisap> is designed to read
+#   them though, maybe I should make a libappimage-compatible binding in order
+#   to make it a simple drop-in replaceent for apps that rely on it
 # * Desktop integration information is stored in a zip file placed at the end
-#   of the AppImage. This makes it trivial to extract and desktop integration
+#   of the bundle. This makes it trivial to extract and desktop integration
 #   software won't even require a SquashFS driver. The update information can
 #   even be extracted without zip! See the code under `--appimage-updateinfo`
 #   flag to see how
+
+# TODO:
+# * Make `--appimage-extract` work without fuse
+# * Use a patched version of fuse in the portable squashfuse so that fuse2 and
+#   fuse3 systems can run shImgs (this was recently fixed in the upstream
+#   AppImage runtime)
 
 # Basic header informaion, While not going to be at a consistent file offset,
 # it should be guarenteed to be very close to the top of the file (<20 lines
 # when comments ane whitespace are stripped for easy accessing
 img_type=_IMG_TYPE_
 sfs_offset=_sfs_o_
-version=0.2.1
+version=0.2.2
 arch=_ARCH_
 COMP=cmp
 
 # Run these startup commands concurrently to make them faster
 [ -z $ARCH ] && ARCH=$(uname -m &)
-# TODO: Add more ARMHF-compat arches
 [ -z $UID  ] && UID=$(id -u &)
 [ -z $TARGET_APPIMAGE ] && TARGET_APPIMAGE="$0"
 shell=$(readlink "/proc/$$/exe" &)
@@ -57,6 +64,7 @@ elif [ -w "$XDG_RUNTIME_DIR" ]; then
 else
 	temp_dir="/tmp"
 fi
+# TODO: Add more ARMHF-compat arches
 if [ "$ARCH" = armv7l ]; then
 	ARCH=armhf
 fi
@@ -212,6 +220,10 @@ mount_appimage() {
 		offset=ar32_o_
 		length=ar32_l_
 		;;
+	*)
+		1>&2 echo "your machine architecture ($ARCH) is not supported by shImg version $version"
+		exit 1
+		;;
 	esac
 
 	if [ $length -eq 0 ]; then
@@ -314,81 +326,81 @@ get_var() {
 # Handle AppImage-specific args (modeled after type 2 AppImage runtime)
 for i in "$@"; do
 	case "$i" in
-		--appimage-extract)
-			echo "Extracting"
-			if [ ! -d "$TARGET_APPIMAGE.appdir" ]; then
-				mkdir "$TARGET_APPIMAGE.appdir"
-				if [ $? -ne 0 ]; then
-					1>&2 echo "failed to create extraction directory! see error above"
-					exit 1
-				fi
-			elif [ ! -w "$TARGET_APPIMAGE.appdir" ]; then
-				1>&2 echo "extraction directory ($TARGET_APPIMAGE.appdir) isn't writable!"
-				exit 1
-			fi
-
-			mount_appimage
-			cp -rv "$MNTDIR/." "$TARGET_APPIMAGE.appdir" | cut -d ' ' -f 3-
-			unmount_appimage 0
-			;;
-		--appimage-help)
-			echo "$help_str"
-			exit 0;;
-		--appimage-mount)
-			mount_appimage
-			echo "$MNTDIR"
-			read REPLY
-			unmount_appimage 0
-			;;
-		--appimage-offset)
-			get_sfs_offset
-			echo "$sfs_offset"
-			exit 0
-			;;
-		--appimage-portable-home)
-			mkdir "$0.home"
+	--appimage-extract)
+		echo "Extracting"
+		if [ ! -d "$TARGET_APPIMAGE.appdir" ]; then
+			mkdir "$TARGET_APPIMAGE.appdir"
 			if [ $? -ne 0 ]; then
-				1>&2 echo "failed to create portable home! see error above"
-				exit 1
-			fi 
-			echo "Created portable home at $0.home"
-			exit 0
-			;;
-		--appimage-portable-config)
-			mkdir "$0.config"
-			if [ $? -ne 0 ]; then
-				1>&2 echo "failed to create portable config! see error above"
+				1>&2 echo "failed to create extraction directory! see error above"
 				exit 1
 			fi
-			echo "created portable config at $0.config"
-			exit 0
-			;;
-#		--appimage-signature)
-#			;;
-		--appimage-updateinfo)
-			# Prefer `unzip` it showed to be the fastest with my tests
-			if command -v 'unzip' > /dev/null; then
-				unzip -p "$TARGET_APPIMAGE" '.APPIMAGE_RESOURCES/update_info' | head -n 2 | tail -n 1
-			elif command -v 'bsdtar' > /dev/null; then
-				bsdtar -Oxf "$TARGET_APPIMAGE" '.APPIMAGE_RESOURCES/update_info' | head -n 2 | tail -n 1
-			else
-				# L O N G sed one-liner to extract the update information from the
-				# zip file placed at the end of the AppImage, this can be done
-				# because it's one of the few files that doesn't get compressed and
-				# has a special header and footer to make it easily locatable
-				tac "$TARGET_APPIMAGE" | sed -n '/---END APPIMAGE \[update_info\]---/,/---BEGIN APPIMAGE \[update_info\]---/{ /---.* APPIMAGE \[update_info\]---/d; p }'
-			fi
-			exit 0
-			;;
-		--appimage-version)
-			[ "$0" != "$TARGET_APPIMAGE" ] && version=$(get_var 'version')
-			echo "$version"
-			exit 0
-			;;
-		--appimage*)
-			1>&2 echo "$i is not implemented in version $version of shappimage"
+		elif [ ! -w "$TARGET_APPIMAGE.appdir" ]; then
+			1>&2 echo "extraction directory ($TARGET_APPIMAGE.appdir) isn't writable!"
 			exit 1
-			;;
+		fi
+
+		mount_appimage
+		cp -rv "$MNTDIR/." "$TARGET_APPIMAGE.appdir" | cut -d ' ' -f 3-
+		unmount_appimage 0
+		;;
+	--appimage-help)
+		echo "$help_str"
+		exit 0;;
+	--appimage-mount)
+		mount_appimage
+		echo "$MNTDIR"
+		read REPLY
+		unmount_appimage 0
+		;;
+	--appimage-offset)
+		get_sfs_offset
+		echo "$sfs_offset"
+		exit 0
+		;;
+	--appimage-portable-home)
+		mkdir "$0.home"
+		if [ $? -ne 0 ]; then
+			1>&2 echo "failed to create portable home! see error above"
+			exit 1
+		fi 
+		echo "Created portable home at $0.home"
+		exit 0
+		;;
+	--appimage-portable-config)
+		mkdir "$0.config"
+		if [ $? -ne 0 ]; then
+			1>&2 echo "failed to create portable config! see error above"
+			exit 1
+		fi
+		echo "created portable config at $0.config"
+		exit 0
+		;;
+#	--appimage-signature)
+#		;;
+	--appimage-updateinfo)
+	# Prefer `unzip` it showed to be the fastest with my tests
+		if command -v 'unzip' > /dev/null; then
+			unzip -p "$TARGET_APPIMAGE" '.APPIMAGE_RESOURCES/update_info' | head -n 2 | tail -n 1
+		elif command -v 'bsdtar' > /dev/null; then
+			bsdtar -Oxf "$TARGET_APPIMAGE" '.APPIMAGE_RESOURCES/update_info' | head -n 2 | tail -n 1
+		else
+			# L O N G sed one-liner to extract the update information from the
+			# zip file placed at the end of the AppImage, this can be done
+			# because it's one of the few files that doesn't get compressed and
+			# has a special header and footer to make it easily locatable
+			tac "$TARGET_APPIMAGE" | sed -n '/---END APPIMAGE \[update_info\]---/,/---BEGIN APPIMAGE \[update_info\]---/{ /---.* APPIMAGE \[update_info\]---/d; p }'
+		fi
+		exit 0
+		;;
+	--appimage-version)
+		[ "$0" != "$TARGET_APPIMAGE" ] && version=$(get_var 'version')
+		echo "$version"
+		exit 0
+		;;
+	--appimage*)
+		1>&2 echo "$i is not implemented in version $version of shImg"
+		exit 1
+		;;
 	esac
 done
 
@@ -412,17 +424,17 @@ export APPIMAGE="$TARGET_APPIMAGE"
 # Run the AppRun script/binary, preferring one provided for the specific arch
 # if provided
 if [ -x "$MNTDIR/AppRun.$ARCH" ]; then
-	"$MNTDIR/AppRun.$ARCH" "$@"
+        "$MNTDIR/AppRun.$ARCH" "$@"
 elif [ -x "$MNTDIR/AppRun" ]; then
-	"$MNTDIR/AppRun" "$@"
+        "$MNTDIR/AppRun" "$@"
+elif [ -f "$MNTDIR/AppRun" ]; then
+        1>&2 echo "AppRun found but isn't executable! please report this error to the developers of this application"
+        # Exit in subshell to set $? variable
+        (exit 1)
 else
-	if [ -f "$MNTDIR/AppRun" ]; then
-		1>&2 echo "AppRun found but isn't executable! please report this error to the developers of this application"
-	else 
-		1>&2 echo "AppRun not found! please report this error to the developers of this application"
-	fi
-	unmount_appimage 1
+        1>&2 echo "AppRun not found! please report this error to the developers of this application"
+        (exit 1)
 fi
 
 # Unmount when finished
-unmount_appimage 0
+unmount_appimage $?
