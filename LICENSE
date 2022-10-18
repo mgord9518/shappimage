@@ -1,3 +1,11 @@
+NOTICE:
+The DwarFS project is under the GPL3 license, because of this, the DwarFS
+binary of shappimage must also fall under the GPL3 and by extension, any
+project that wants to use DwarFS shappimage version must also be GPL3.
+Projects of any license may use the SquashFS version of shappiamge.
+
+------------------------------------------------------------------------------
+
 MIT License
 
 Copyright (c) 2022 Mathew R Gordon
