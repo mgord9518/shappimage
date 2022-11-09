@@ -23,7 +23,6 @@ if [[ "$ARCH" = *'x86_64'* ]]; then
 			wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP$STATIC.x86_64" \
 				-O squashfuse/squashfuse.x86_64
 		fi
-dd
 	fi
 	if [ $COMPRESS_SQUASHFUSE ]; then
 		zopfli --i100 squashfuse/squashfuse.x86_64
@@ -216,8 +215,6 @@ sed -i "s/=_sfs_o_/=$sfsOffset/" runtime
 
 cat runtime $binList > runtime2
 
-#rm runtime
-#rm -r squashfuse
 if [ ! $img_type = dwarfs ]; then
 	mv runtime2 "runtime-$COMP$STATIC-$ARCH"
 else
