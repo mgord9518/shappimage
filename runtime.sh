@@ -45,7 +45,7 @@
 # when comments ane whitespace are stripped for easy accessing
 img_type=_IMG_TYPE_
 sfs_offset=_sfs_o_
-version=0.2.2
+version=0.2.3
 arch=_ARCH_
 COMP=cmp
 
@@ -128,22 +128,22 @@ get_sfs_offset() {
 	fi
 
 	# 32 bit is 0x01, 64 bit is 0x02, shappimage is 0x69 (nice)
-	if [ "$elf_class" = "01" ]; then
+	if [ "$elf_class" = '01' ]; then
 		shentsize='0x'$(get_bytes 46 2 &)
 		shnum='0x'$(get_bytes 48 2 &)
 		shoff='0x'$(get_bytes 32 4 &)
-	elif [ "$elf_class" = "02" ]; then
+	elif [ "$elf_class" = '02' ]; then
 		shentsize='0x'$(get_bytes 58 2 &)
 		shnum='0x'$(get_bytes 60 2 &)
 		shoff='0x'$(get_bytes 40 8 &)
-	elif [ "$elf_class" = "69" ]; then
+	elif [ "$elf_class" = '69' ]; then
 		sfs_offset=$(get_var 'sfs_offset')
 		return
 	fi
 
 	wait
 
-	sfs_offset=$(($shnum*$shentsize+$shoff))
+	sfs_offset=$(($shnum * $shentsize + $shoff))
 }
 
 # WIP -- attempt to utilize "bashisms" to speed up the script for shells that
@@ -354,7 +354,8 @@ for i in "$@"; do
 		;;
 	--appimage-offset)
 		get_sfs_offset
-		echo "$sfs_offset"
+		# Add nothing to offset to remove leading 0s
+		expr $sfs_offset + 0
 		exit 0
 		;;
 	--appimage-portable-home)
