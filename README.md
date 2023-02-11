@@ -18,18 +18,14 @@ up once finished. See [File structure](#file-structure) for more info
 
 ## How different is it from standard AppImage?
 
-Besides not being an ELF file, shImg has both semi-static and fully static
-runtimes. This is to allow a smaller runtime size assuming the user has GLibC on
-their system (most AppImages require it anyway). If an AppImage does not require
-GLibC to run, it should use the fully static runtime, which can also run on
-distros such as Alpine and NixOS. I imagine a tool made to build shImgs should
-try to detect whether the application requires GLibC to run and use the
-appropriate runtime. Some current issues shImg has that the standard AppImage
-runtime doesn't are: shImg requires fuse3 and can only use `--appimage-extract`
-on systems with a working FUSE driver. This may make it harder to use on minimal
-or older systems.
+The ultimate goal is to have it be almost identical in normal use, but it isn't
+quite there yet. It's currently missing the ability to extract without requiring
+FUSE on the system, along with requiring `fusermount3`, which only exists on
+FUSE3 systems. Assuming you're on a modern system with FUSE3 though, it should
+work just like normal AppImages (assuming your file manager allows launching
+scripts as applications instead of just opening them in an editor)
 
-The shImg runtime also has a longer initialization time compared to standard the
+The shImg runtime has a longer initialization time compared to standard the
 standard runtime. I've tried to optimize it a bit, but it still takes about
 0.08s on my (fairly bad) hardware. I plan on adding a Perl section that should
 hopefully speed up the parsing sections, further speeding it up. 0.08s is
@@ -42,7 +38,7 @@ Another difference is the default compression being LZ4 (LZ4_HC) instead of LZIB
 I decided this because LZ4 compression is practically free while still getting
 a decent (40%-60%) compression ratio. ZSTD is also supported as an option for
 both mid and high compression at the cost of longer launch time, but it should
-still be signifirantly faster than both ZLIB and  XZ. Larger apps quickly reveal
+still be signifirantly faster than both ZLIB and XZ. Larger apps quickly reveal
 the benefit of using decompression optimized for modern hardware. Using LZ4, I
 generally get apps 30%-50% larger than ZLIB, but the return is a near-native
 launch speed.
@@ -122,6 +118,11 @@ The only supported icon (`default.png`, `default.svg`) image formats are PNG
 and SVG, and there should only be one "default" file. Thumbnailing images MUST
 be PNG. 256.png is the only required image for thumbnailing, but more sizes may
 also be added if desired.
+
+## DwarFS notice
+
+As DwarFS is licensed under GPL3, the DwarFS shImg version may only be used with
+GPL3 software.
 
 ## Building
 
