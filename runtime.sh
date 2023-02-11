@@ -64,10 +64,12 @@ elif [ -w "$XDG_RUNTIME_DIR" ]; then
 else
 	temp_dir="/tmp"
 fi
+
 # TODO: Add more ARMHF-compat arches
 if [ "$ARCH" = armv7l ]; then
 	ARCH=armhf
 fi
+
 case "$shell" in
 	*bash)
 		use_bashisms=true;;
