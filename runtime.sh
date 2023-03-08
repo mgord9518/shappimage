@@ -1,7 +1,7 @@
 #!/bin/sh
 #.shImg.#
 
-# Copyright © 2021-2022 Mathew Gordon <github.com/mgord9518>
+# Copyright © 2021-2023 Mathew Gordon <github.com/mgord9518>
 
 # This is a proof-of-concept of a fat AppImage runtime using shell scripting
 # The base functionality is mostly modeled directly off of AppImage type 2's
@@ -9,9 +9,9 @@
 #
 # * Addition of $MNTDIR, which allows setting the location of where to mount
 #   the SquashFS archive
-# * Mounts into `/run` instead of `/tmp`, unless `$TMPDIR` is set. I can't
-#   imagine this would change functionality hardly at all, but I guess it's
-#   worth mentioning
+# * Mounts into `$XDG_RUNTIME_DIR` instead of `/tmp`, unless `$TMPDIR` is set.
+#   I can't imagine this would change functionality hardly at all, but I guess
+#   it's worth mentioning
 # * Can support multiple architectures with one AppImage, may be good for small
 #   programs
 # * Slower launch time (obviously, it's shell vs C). The launch difference is
@@ -19,15 +19,16 @@
 #   a CLI program many times. The launch time impact can also be remedied by
 #   LZ4 compression (default) at the cost of larger bundles. IMO, it is a good
 #   balance between launch time and compression. This script also runs faster
-#   with dash compared to bash or zsh
+#   in dash compared to bash or zsh, which is the default `/bin/sh` on Debian
+#   based systems.
 # * There are currently no tools to properly build AppImages with this runtime
-#   besides `make_runtime.sh`, which is fully intended as a temporary builder
-#   for testing the script development
+#   so you must manually build the filesystem image and append it to the
+#   appropriate runtime
 # * Most AppImage integration software does not recognize the format as it
-#   isn't standard and uses the sfs_offset variable as the offset instead of
+#   isn't standard and uses the image_offset variable as the offset instead of
 #   the ELF header. aisap <github.com/mgord9518/aisap> is designed to read
-#   them though, maybe I should make a libappimage-compatible binding in order
-#   to make it a simple drop-in replaceent for apps that rely on it
+#   them though, maybe I'll make a libappimage-compatible binding in order to
+#   make it a simple drop-in replaceent for apps that rely on it
 # * Desktop integration information is stored in a zip file placed at the end
 #   of the bundle. This makes it trivial to extract and desktop integration
 #   software won't even require a SquashFS driver. The update information can
@@ -41,13 +42,21 @@
 #   AppImage runtime)
 
 # Basic header informaion, While not going to be at a consistent file offset,
-# it should be guarenteed to be very close to the top of the file (<20 lines
-# when comments ane whitespace are stripped for easy accessing
-img_type=_IMG_TYPE_
-sfs_offset=_sfs_o_
-version=0.2.3
+# it should be very close to the top of the file (<20 lines when comments ane
+# whitespace are stripped for easy accessing
+image_type=_IMAGE_TYPE_
+image_compression=_IMAGE_COMPRESSION_
+
+# TODO: eventually deprecate `sfs_offset` as `image_offset` is more descriptive
+# and generic towards other image formats. Kept around for the time being to
+# allow backwards compat
+sfs_offset=_IMAGE_OFFSET_
+image_offset=_IMAGE_OFFSET_
+
+# This will get switched to `y` if `add_integration.sh` is run
+contains_integration_zip=n
+version=0.3.0
 arch=_ARCH_
-COMP=cmp
 
 # Run these startup commands concurrently to make them faster
 [ -z $ARCH ] && ARCH=$(uname -m &)
@@ -70,15 +79,18 @@ if [ "$ARCH" = armv7l ]; then
 	ARCH=armhf
 fi
 
+# Take advantage of non-POSIX features to minimize the amount of shelling out
+# to external programs, making the script faster
 case "$shell" in
-	*bash)
-		use_bashisms=true;;
-	*osh)
-		use_bashisms=true;;
-	*zsh)
-		use_bashisms=true;;
-	*)
-		use_bashisms=false;;
+*bash)
+	use_bashisms=true
+	;;
+*osh)
+	use_bashisms=true
+	;;
+*zsh)
+	use_bashisms=true
+	;;
 esac
 
 help_str='AppImage options:
@@ -100,104 +112,74 @@ enviornment variables:
  
 unofficial AppImage runtime implemented in shell script
 '
-# Calculate ELF size in pure shell using `shnum * shentsize + shoff`
-# Most of this code is just to find their values
-get_sfs_offset() {
-	[ "$0" = "$TARGET_APPIMAGE" ] && return
+
+# Flips the endianness of a supplied int by splitting every 2 chars onto a
+# seperate line, reversing those lines and removing the line breaks
+reverse_int_endianness() {
+	echo "$1" | sed -e 's/.\{2\}/&\n/g' | tac | tr -d '\n'
+}
+
+# Finds the length of an ELF or shImg file
+get_image_offset() {
+	if [ "$0" = "$TARGET_APPIMAGE" ]; then
+		echo $image_offset
+		return
+	fi
 
 	elf_endianness=$(xxd -s 5 -l 1 -p "$TARGET_APPIMAGE" &)
 	elf_class=$(xxd -s 4 -l 1 -p "$TARGET_APPIMAGE" &)
 	wait
-	
-#	if [ "$use_bashisms" = 'true' ]; then
-#		get_sfs_offset_bashisms
-#		return
-#	fi
 
-	# How to interpret the bytes based on their endianness
-	# 0x01 is little, 0x02 is big, 0x6e is shappimage
-	if [ "$elf_endianness" = '01' ]; then
+	# How to interpret integers based on their endianness
+	case "$elf_endianness" in
+	01) # Little endian
 		get_bytes() {
-			xxd -e -s "$1" -l "$2" -g "$2" "$TARGET_APPIMAGE" | cut -d ' ' -f 2
+			# Custom function instead of `-e` flag as it can't be expected to
+			# exist on non-GNU systems (eg: Alpine)
+			reverse_int_endianness $(xxd -s "$1" -l "$2" -p "$TARGET_APPIMAGE")
 		}
-	elif [ "$elf_endianness" = '02' ] || [ "$elf_endianness" = '6e' ]; then
+		;;
+	02) # Big endian
 		get_bytes() {
-			xxd -s "$1" -l "$2" -p $TARGET_APPIMAGE 
+			xxd -s "$1" -l "$2" -p "$TARGET_APPIMAGE" 
 		}
-	else
+		;;
+	*)
 		1>&2 echo "invalid endianness (0x$elf_endianness), unable to find offset!"
 		exit 1
-	fi
+		;;
+	esac
 
-	# 32 bit is 0x01, 64 bit is 0x02, shappimage is 0x69 (nice)
-	if [ "$elf_class" = '01' ]; then
+	case "$elf_class" in
+	01) # 32 bit
 		shentsize='0x'$(get_bytes 46 2 &)
 		shnum='0x'$(get_bytes 48 2 &)
 		shoff='0x'$(get_bytes 32 4 &)
-	elif [ "$elf_class" = '02' ]; then
+		;;
+	02) # 64 bit
 		shentsize='0x'$(get_bytes 58 2 &)
 		shnum='0x'$(get_bytes 60 2 &)
 		shoff='0x'$(get_bytes 40 8 &)
-	elif [ "$elf_class" = '69' ]; then
-		sfs_offset=$(get_var 'sfs_offset')
+		;;
+	69) # shImg
+		echo $(get_var 'sfs_offset')
 		return
-	fi
+		;;
+	*)
+		1>&2 echo "invalid or unknown class (0x$elf_class), unable to find offset!"
+		exit 1
+		;;
+	esac
 
 	wait
 
-	sfs_offset=$(($shnum * $shentsize + $shoff))
+	# This calculates the total length of an ELF file
+	echo $(($shnum * $shentsize + $shoff))
 }
 
-# WIP -- attempt to utilize "bashisms" to speed up the script for shells that
-# can have them.
-#get_sfs_offset_bashisms() {
-#	if [ "$elf_endianness" = '01' ]; then
-#		header=$(xxd -e -s 4 -l 70 -g 16 "$TARGET_APPIMAGE" | cut -d ' ' -f 2)
-#		elf_class=${header:30:2}
-#		if [ "$elf_class" = "01" ]; then
-#			shentsize='0x'${header:74:4}
-#			shnum='0x'${header:70:4}
-#			shoff='0x'${header:33:8}
-#		elif [ "$elf_class" = "02" ]; then
-#			shentsize='0x'${header:132:4}
-#			shnum='0x'${header:136:4}
-#			shoff='0x'${header:74:16}
-#		fi
-#		# Doesn't support big endianness yet, but that is very rare on modern
-#		# processors anyway
-#	elif [ "$elf_endianness" = '02' ] || [ "$elf_endianness" = '6e' ]; then
-#		header=$(xxd -s 4 -l 58 -p "$TARGET_APPIMAGE")
-#		elf_class=${header:0:2}
-##		if [ "$elf_class" = "01" ]; then
-##			shentsize='0x'${header:74:4}
-##			shnum='0x'${header:70:4}
-##			shoff='0x'${header:33:8}
-##		elif [ "$elf_class" = "02" ]; then
-##			shentsize='0x'${header:132:4}
-##			shnum='0x'${header:136:4}
-##			shoff='0x'${header:74:16}
-##		fi
-#		if [ "$elf_class" = "02" ]; then
-#			shentsize='0x'${header:132:4}
-#			shnum='0x'${header:136:4}
-#			shoff='0x'${header:74:16}
-#		fi
-#	else
-#		1>&2 echo "invalid endianness (0x$elf_endianness), unable to find offset!"
-#		exit 1
-#	fi
-#
-#	# Get offset for another shappimage
-#	if [ "$elf_class" = "69" ]; then
-#		sfs_offset=$(get_var 'sfs_offset')
-#		return
-#	fi
-#
-#	sfs_offset=$(($shnum*$shentsize+$shoff))
-#}
 
-# Mount the SquashFS image either using squashfuse on the host system or by
-# extracting an internal squashfuse binary.
+# Mount the filesystem image either using squashfuse/DwarFS on the host system
+# or by extracting an internal binary
 mount_appimage() {
 	# If AppDir instead of AppImage, return quickly
 	if [ -d "$TARGET_APPIMAGE" ] && [ -x "$TARGET_APPIMAGE/AppRun" ]; then
@@ -236,7 +218,7 @@ mount_appimage() {
 	# Set variable for random numbers if not available in running shell
 	[ -z $RANDOM ] && RANDOM=$(tr -dc '0-9a-zA-Z' < /dev/urandom 2> /dev/null | head -c 8)
 
-	if [ "$use_bashisms" = "false" ]; then
+	if [ !$use_bashisms ]; then
 		run_id="$(basename $TARGET_APPIMAGE | head -c 8)$RANDOM"
 	else
 		run_id="$(basename $TARGET_APPIMAGE)"
@@ -263,11 +245,11 @@ mount_appimage() {
 		exit 1
 	fi
 
-	get_sfs_offset
+	image_offset=$(get_image_offset)
 	extract_exe
 
-	# Attempt to mount and thow an error if unsuccessful
-		mnt_cmd "$TARGET_APPIMAGE" "$MNTDIR" $sfs_offset
+	# Attempt to mount and throw an error if unsuccessful
+	mnt_cmd "$TARGET_APPIMAGE" "$MNTDIR" $image_offset
 	if [ $? -ne 0 ]; then
 		1>&2 echo "failed to mount bundle image! see error message above"
 		exit 1
@@ -276,18 +258,20 @@ mount_appimage() {
 
 # Unmount and exit, prefering `fusermount` which is on practically all common 
 # desktop Linux distos, fall back on `umount` just in case
-# Lazy unmount is to fix "resource busy" problem when running on Ubuntu 18,04
+# Lazy unmount is to fix "resource busy" problem when running on Ubuntu 18.04
 unmount_appimage() {
 	[ -d "$TARGET_APPIMAGE" ] && return
 
 	if command -v 'fusermount' > /dev/null; then
 		fusermount -uz "$MNTDIR" &
+	elif command -v 'fusermount3' > /dev/null; then
+		fusermount3 -uz "$MNTDIR" &
 	else
 		umount -l "$MNTDIR" &
 	fi
 
 	# Clean up all empty directories
-	rmdir "$temp_dir/.mount"* 2> /dev/null &
+	rmdir "$temp_dir/.mount_"* 2> /dev/null &
 
 	exit $1
 }
@@ -295,28 +279,28 @@ unmount_appimage() {
 # Find the location of the internal binary (may be either squashfuse or DwarFS)
 # based on system arch
 extract_exe() {
-	temp_exe="$temp_dir/shImg-${img_type}_$UID-$COMP"
+	temp_exe="$temp_dir/$UID-shImg-${image_type}-$image_compression-$ARCH"
 
-	if [ "$img_type" = 'squashfs' ]; then
+	if [ "$image_type" = 'squashfs' ]; then
 		command -v 'squashfuse' > /dev/null && temp_exe=$(command -v 'squashfuse')
+
 		mnt_cmd() {
 			"$temp_exe" "$1" "$2" -o offset=$3
 		}
-	elif [ "$img_type" = 'dwarfs' ]; then
+	elif [ "$image_type" = 'dwarfs' ]; then
 		command -v 'dwarfs' > /dev/null && temp_exe=$(command -v 'dwarfs')
+
 		mnt_cmd() {
 			"$temp_exe" "$1" "$2" -o offset=$3 -o debuglevel=error
 		}
 	fi
 
 	# Don't extract it again if it's already there
-	if [ -x "$temp_exe" ]; then
-		return
-	fi
+	[ -x "$temp_exe" ] && return
 
-	# Extract it, mkruntime will modify this adding, a gzip extract into the
-	# pipe if `$NO_COMPRESS_SQUASHFUSE` is unset
-	tail -c +$offset "$0" | head -c +$length > "$temp_exe" &
+	# Extract it, make_runtime.sh will modify this adding a gzip extract into
+	# the pipe if `$COMPRESS_SQUASHFUSE` is set
+	tail -c +$offset "$0" | head -c $length > "$temp_exe" &
 	chmod 0700 "$temp_exe" &
 	wait
 }
@@ -347,7 +331,8 @@ for i in "$@"; do
 		;;
 	--appimage-help)
 		echo "$help_str"
-		exit 0;;
+		exit 0
+		;;
 	--appimage-mount)
 		mount_appimage
 		echo "$MNTDIR"
@@ -355,26 +340,30 @@ for i in "$@"; do
 		unmount_appimage 0
 		;;
 	--appimage-offset)
-		get_sfs_offset
-		# Add nothing to offset to remove leading 0s
-		expr $sfs_offset + 0
+		# Evaluate the image offset by adding nothing, this is to strip off
+		# leading zeroes
+		expr $(get_image_offset) + 0
 		exit 0
 		;;
 	--appimage-portable-home)
 		mkdir "$0.home"
+
 		if [ $? -ne 0 ]; then
 			1>&2 echo "failed to create portable home! see error above"
 			exit 1
 		fi 
+
 		echo "Created portable home at $0.home"
 		exit 0
 		;;
 	--appimage-portable-config)
 		mkdir "$0.config"
+
 		if [ $? -ne 0 ]; then
 			1>&2 echo "failed to create portable config! see error above"
 			exit 1
 		fi
+
 		echo "created portable config at $0.config"
 		exit 0
 		;;
@@ -430,6 +419,11 @@ if [ -x "$MNTDIR/AppRun.$ARCH" ]; then
         "$MNTDIR/AppRun.$ARCH" "$@"
 elif [ -x "$MNTDIR/AppRun" ]; then
         "$MNTDIR/AppRun" "$@"
+
+		if [ $? = 127 ]; then
+			1>&2 echo "the application appears to be missing shared libraries and will not run :("
+			1>&2 echo "this most likely means that it wasn't packaged to work with your distro or libc version"
+		fi
 elif [ -f "$MNTDIR/AppRun" ]; then
         1>&2 echo "AppRun found but isn't executable! please report this error to the developers of this application"
         # Exit in subshell to set $? variable

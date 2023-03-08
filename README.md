@@ -10,6 +10,7 @@ The idea just popped into my head as a way to make cross-architecture AppImages
 so I decided to make it and see how feasible it is
 
 ## How does it work?
+
 Overall it's pretty simple, the script checks if the user has squashfuse/dwarfs
 binaries on their system (prefers this), if not it will extract a portable
 binary to `$XDG_RUNTIME_DIR`. It then uses the binary to mount the attached

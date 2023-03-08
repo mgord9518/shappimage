@@ -10,6 +10,9 @@
 [ -z $COMP ] && COMP='lz4'
 [ -z $img_type ] && img_type='squashfs'
 
+# Make all builds static for time being
+STATIC='-static'
+
 [ ! -d 'squashfuse' ] && mkdir squashfuse
 
 # Download required squashfuse squashfusearies per architecture if they don't already
@@ -65,13 +68,12 @@ fi
 # size of the runtime
 echo '#!/bin/sh
 #.shImg.#
-#see<github.com/mgord9518/shappimage>4Src' > runtime
+#see <github.com/mgord9518/shappimage> for src' > runtime
 
 # Experimental e x t r a flattening, might turn this into its own seperate
 # project
 # this has really gotten out of hand
 if [ $COMPRESS_SCRIPT ]; then
-	perl bash_obfus.pl -i runtime.sh -o runtime.fus -V A
 	echo 'alias A=alias
 A B=else
 A C=cut
@@ -88,7 +90,7 @@ A M=mkdir
 A N=then
 A O="L -z"
 A P="L -f"
-A Q="I !"
+A Q="case"
 A R="1>&2 E"
 A S=sed
 A T=tail
@@ -102,7 +104,8 @@ A A="xxd -s"' >> runtime
 # ^ alias common commands and statements to single chars to drastically shrink
 # scripts
 
-	cat runtime.fus | tr -d '\t' | sed \
+	# Replace common shell phrases with aliases
+	cat runtime.sh | tr -d '\t' | sed \
 	-e 's/#.*//' \
 	-e 's/ \&\& /\&\&/g' \
 	-e 's/ \&/\&/g' \
@@ -161,22 +164,20 @@ A A="xxd -s"' >> runtime
 	-e 's/\[ /L /g' \
 	-e 's/L -z/O/g' \
 	-e 's/L -f/P/g' \
-	-e 's/I !/Q/g' \
+	-e 's/case/Q/g' \
 	-e 's/ \]//g' \
 	| perl -0pe 's/;;\nesac/;;esac/g' | grep . >> runtime
 else
 	cat runtime.sh | tr -d '\t' | sed 's/#.*//' | grep . >> runtime
 fi
 
-cp runtime.sh runtime
-
 arch=$(echo "$ARCH" | tr '-' ';')
 
 # Honestly, I can't think of any reason NOT to compress the squashfuse binaries
 # but leaving it as optional anyway
-[ $COMPRESS_SQUASHFUSE ] && sed -i 's/head -c +$length >/head -c +$length | gzip -d >/' runtime
-sed -i "s/=cmp/=$COMP/" runtime
-sed -i "s/=_IMG_TYPE_/=$img_type/" runtime
+[ $COMPRESS_SQUASHFUSE ] && sed -i 's/head -c $length >/head -c $length | gzip -d >/' runtime
+sed -i "s/=_IMAGE_COMPRESSION_/=$COMP/" runtime
+sed -i "s/=_IMAGE_TYPE_/=$img_type/" runtime
 sed -i "s/=_ARCH_/='$arch'/" runtime
 
 # Sizes of all files being packed into the runtime
@@ -207,11 +208,11 @@ sed -i "s/=ar64_l_/=$ar64_l/" runtime
 sed -i "s/=ar32_o_/=$ar32_o/" runtime
 sed -i "s/=ar32_l_/=$ar32_l/" runtime
 
-runLen=$(cat runtime $binList | wc -c | tr -dc '0-9')
+runtime_size=$(cat runtime $binList | wc -c | tr -dc '0-9')
 
 # Had to expand to 7 digits because of DwarFS's large size
-sfsOffset=$(printf "%07d" "$runLen")
-sed -i "s/=_sfs_o_/=$sfsOffset/" runtime
+image_offset=$(printf "%014d" "$runtime_size")
+sed -i "s/=_IMAGE_OFFSET_/=$image_offset/" runtime
 
 cat runtime $binList > runtime2
 
