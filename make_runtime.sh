@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 # VERY hacked together script just to assemble the runtime, probably will
 # eventually make it cleaner, but it works for the time being
