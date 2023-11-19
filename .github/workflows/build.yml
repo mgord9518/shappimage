@@ -13,9 +13,6 @@ jobs:
     - name: Install deps
       run:  sudo apt install zopfli
 
-    - name: Build x86_64 (all compression, DwarFS)
-      run:  COMPRESS_SQUASHFUSE=1 img_type=dwarfs ARCH=x86_64 ./make_runtime.sh
-  
     - name: Build x86_64 (LZ4)
       run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64 ./make_runtime.sh
   
@@ -55,16 +52,16 @@ jobs:
 
     # FULLY STATIC BUILDS
     - name: Build x86_64 (LZ4)
-      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=x86_64 STATIC=-static ./make_runtime.sh
+      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=x86_64 STATIC_SQUASHFUSE=1 ./make_runtime.sh
   
     - name: Build aarch64 (LZ4)
-      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=aarch64 STATIC=-static ./make_runtime.sh
+      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=aarch64 STATIC_SQUASHFUSE=1 ./make_runtime.sh
 
 #    - name: Build armhf (LZ4)
 #      run:  COMPRESS_SQUASHFUSE=1 ARCH=armhf STATIC=-static ./make_runtime.sh
 
     - name: Build x86_64 and aarch64 (LZ4)
-      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64 STATIC=-static ./make_runtime.sh
+      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64 STATIC_SQUASHFUSE=1 ./make_runtime.sh
 
 #    - name: Build all architectures static (LZ4)
 #      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64-armhf STATIC=-static ./make_runtime.sh
@@ -73,13 +70,13 @@ jobs:
   
 
     - name: Build x86_64 (ZSTD)
-      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=x86_64 COMP=zstd STATIC=-static ./make_runtime.sh
+      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=x86_64 COMP=zstd STATIC_SQUASHFUSE=1 ./make_runtime.sh
   
     - name: Build aarch64 (ZSTD)
-      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=aarch64 COMP=zstd STATIC=-static ./make_runtime.sh
+      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=aarch64 COMP=zstd STATIC_SQUASHFUSE=1 ./make_runtime.sh
 
     - name: Build x86_64 and aarch64 (ZSTD)
-      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64 COMP=zstd STATIC=-static ./make_runtime.sh
+      run:  COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64 COMP=zstd STATIC_SQUASHFUSE=1 ./make_runtime.sh
 
 #    - name: Build all architectures (ZSTD)
 #      run:  rm -r squashfuse; COMPRESS_SQUASHFUSE=1 ARCH=x86_64-aarch64-armhf COMP=zstd STATIC=-static ./make_runtime.sh

@@ -55,7 +55,7 @@ image_offset=_IMAGE_OFFSET_
 
 # This will get switched to `y` if `add_integration.sh` is run
 contains_integration_zip=n
-version=0.3.0
+version=0.4.0
 arch=_ARCH_
 
 # Run these startup commands concurrently to make them faster

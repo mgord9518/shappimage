@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # VERY hacked together script just to assemble the runtime, probably will
 # eventually make it cleaner, but it works for the time being
@@ -10,57 +10,38 @@
 [ -z $COMP ] && COMP='lz4'
 [ -z $img_type ] && img_type='squashfs'
 
-# Make all builds static for time being
-STATIC='-static'
+[ $STATIC_SQUASHFUSE ] && static_prefix='.static'
+
+squashfuse_source="https://github.com/mgord9518/squashfuse-zig/releases/download/continuous"
 
 [ ! -d 'squashfuse' ] && mkdir squashfuse
 
-# Download required squashfuse squashfusearies per architecture if they don't already
-# exist
-if [[ "$ARCH" = *'x86_64'* ]]; then
-	if [ ! -f 'squashfuse/squashfuse.x86_64'* ]; then
-		if [ $img_type = dwarfs ]; then
-			wget "https://github.com/mhx/dwarfs/releases/download/v0.5.6/dwarfs-0.5.6-Linux.tar.xz" -O - | \
-				tar -xOJ 'dwarfs-0.5.6-Linux/sbin/dwarfs' --strip=2 > squashfuse/squashfuse.x86_64
-		else
-			wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP$STATIC.x86_64" \
-				-O squashfuse/squashfuse.x86_64
-		fi
-	fi
-	if [ $COMPRESS_SQUASHFUSE ]; then
-		zopfli --i100 squashfuse/squashfuse.x86_64
-		rm squashfuse/squashfuse.x86_64
-		binList="squashfuse/squashfuse.x86_64.gz"
-	else
-		binList="squashfuse/squashfuse.x86_64"
-	fi
+if command -v zopfli > /dev/null; then
+    compress_command=zopfli
+    compress_flags="--i100"
+else
+    compress_command=gzip
+    compress_flags="-9"
 fi
-if [[ "$ARCH" = *'aarch64'* ]]; then
-	if [ ! -f 'squashfuse/squashfuse.aarch64'* ]; then
-		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/nightly/squashfuse_ll_$COMP$STATIC.aarch64" \
-			-O squashfuse/squashfuse.aarch64
-	fi
-	if [ $COMPRESS_SQUASHFUSE ]; then
-		zopfli --i1000 squashfuse/squashfuse.aarch64
-		rm squashfuse/squashfuse.aarch64
-		binList="$binList squashfuse/squashfuse.aarch64.gz"
-	else
-		binList="$binList squashfuse/squashfuse.aarch64"
-	fi
-fi
-if [[ "$ARCH" = *'armhf'* ]]; then
-	if [ ! -f 'squashfuse/squashfuse.armhf'* ]; then
-		wget "https://github.com/mgord9518/portable_squashfuse/releases/download/manual/squashfuse_ll_$COMP$STATIC.armv7l" \
-			-O squashfuse/squashfuse.armhf
-	fi
-	if [ $COMPRESS_SQUASHFUSE ]; then
-		zopfli --i1000 squashfuse/squashfuse.armhf
-		rm squashfuse/squashfuse.armhf
-		binList="$binList squashfuse/squashfuse.armhf.gz"
-	else
-		binList="$binList squashfuse/squashfuse.armhf"
-	fi
-fi
+
+for arch in 'x86_64' 'aarch64' 'x86' 'armhf'; do
+    # Download required squashfuse squashfusearies per architecture if they don't already
+    # exist
+    if [ $(grep "$arch" <<< "$ARCH") ]; then
+        if [ ! -f "squashfuse/squashfuse.$arch"* ]; then
+            wget "$squashfuse_source/squashfuse_${COMP}${static_prefix}.$arch" \
+                -O "squashfuse/squashfuse.$arch"
+        fi
+
+        if [ $COMPRESS_SQUASHFUSE ]; then
+            "$compress_command" $compress_flags "squashfuse/squashfuse.$arch"
+            rm "squashfuse/squashfuse.$arch"
+            binList="$binList squashfuse/squashfuse.$arch.gz"
+        else
+            binList="$binList squashfuse/squashfuse.$arch"
+        fi
+    fi
+done
 
 # Collapse the script to make it smaller, not really sure whether I should keep
 # it or not as it also obfuscates the code and the size difference makes little
@@ -70,106 +51,7 @@ echo '#!/bin/sh
 #.shImg.#
 #see <github.com/mgord9518/shappimage> for src' > runtime
 
-# Experimental e x t r a flattening, might turn this into its own seperate
-# project
-# this has really gotten out of hand
-if [ $COMPRESS_SCRIPT ]; then
-	echo 'alias A=alias
-A B=else
-A C=cut
-A D="sed -e"
-A E=echo
-A F="command -v"
-A G=grep
-A H=head
-A L=test
-A I="if L"
-A J="elif L"
-A K=gzip
-A M=mkdir
-A N=then
-A O="L -z"
-A P="L -f"
-A Q="case"
-A R="1>&2 E"
-A S=sed
-A T=tail
-A U="E -ne"
-A V=wait
-A W="K -d"
-A X=fi
-A Y=exit
-A Z=return
-A A="xxd -s"' >> runtime
-# ^ alias common commands and statements to single chars to drastically shrink
-# scripts
-
-	# Replace common shell phrases with aliases
-	cat runtime.sh | tr -d '\t' | sed \
-	-e 's/#.*//' \
-	-e 's/ \&\& /\&\&/g' \
-	-e 's/ \&/\&/g' \
-	-e 's/ || /||/g' \
-	-e 's/ | /|/g' \
-	-e 's/ {/{/g' \
-	-e 's/; /;/g' \
-	-e 's/ > />/g' \
-	-e 's/> />/g' \
-	-e 's/ < /</g' \
-	-e 's/< /</g' \
-	-e 's/ << /<</g' \
-	-e 's/<< /<</g' \
-	-e 's/ ()/()/g' \
-	-e 's/cut -d /C -d/g' \
-	-e 's/head -c /H -c/g' \
-	-e 's/tail -c /T -c/g' \
-	-e 's/^cut/C/g' \
-	-e 's/|cut/|C/g' \
-	-e 's/^head /H /g' \
-	-e 's/|head/|H/g' \
-	-e 's/^tail /T /g' \
-	-e 's/|tail/|T/g' \
-	-e 's/1>&2 echo/R/g' \
-	-e 's/^echo -ne/U/g' \
-	-e 's/^echo -en/U/g' \
-	-e 's/^echo -e -n/U/g' \
-	-e 's/^echo -n -e/U/g' \
-	-e 's/^echo/E/g' \
-	-e 's/\&\&echo -ne/\&\&U/g' \
-	-e 's/\&\&echo -en/\&\&U/g' \
-	-e 's/\&\&echo -e -n/\&\&U/g' \
-	-e 's/\&\&echo -n -e/\&\&U/g' \
-	-e 's/\&\&echo/\&\&E/g' \
-	-e 's/^exit/Y/g' \
-	-e 's/mkdir/M/g' \
-	-e 's/sed -e/D/g' \
-	-e 's/^sed/S/g' \
-	-e 's/|sed/|S/g' \
-	-e 's/xxd -s/A/g' \
-	-e 's/xxd -e -s/A -e/g' \
-	-e 's/command -v/F/g' \
-	-e 's/gzip -d/W/g' \
-	-e 's/gunzip/W/g' \
-	-e 's/wait/V/g' \
-	-e 's/gzip/K/g' \
-	-e 's/grep/G/g' \
-	-e 's/^elif \[/J/g' \
-	-e 's/^if \[/I/g' \
-	-e 's/^then/N/g' \
-	-e 's/;then/;N/g' \
-	-e 's/^else/B/g' \
-	-e 's/^fi/X/g' \
-	-e 's/^return/Z/g' \
-	-e 's/\&\&return/\&\&Z/g' \
-	-e 's/\[ /L /g' \
-	-e 's/L -z/O/g' \
-	-e 's/L -f/P/g' \
-	-e 's/case/Q/g' \
-	-e 's/ \]//g' \
-	| perl -0pe 's/;;\nesac/;;esac/g' | grep . >> runtime
-else
-	cat runtime.sh | tr -d '\t' | sed 's/#.*//' | grep . >> runtime
-fi
+cat runtime.sh | tr -d '\t' | sed 's/#.*//' | grep . >> runtime
 
 arch=$(echo "$ARCH" | tr '-' ';')
 
